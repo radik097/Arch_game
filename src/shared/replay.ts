@@ -153,3 +153,20 @@ export interface LeaderboardEntry {
   createdAt: string;
   sessionId: string;
 }
+
+export interface VisitorRegistrationRequest {
+  sessionId: string;
+  page: string;
+  referrer?: string;
+  userAgent?: string;
+  language?: string;
+  timezone?: string;
+  screen?: string;
+}
+
+export interface VisitorStatsResponse {
+  totalVisits: number;
+  uniqueVisitors: number;
+  lastVisitAt: string | null;
+  counted: boolean;
+}

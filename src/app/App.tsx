@@ -2,10 +2,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { deriveObjectives } from '../features/simulator/objectives';
 import { completeInput, createInitialState, executeCommand, getPromptLabel } from '../features/simulator/engine';
 import type { Difficulty, GameState, TerminalLine } from '../features/simulator/types';
-import { fetchLeaderboard, startOfficialSession, submitOfficialReplay } from '../features/session/api';
+import { fetchLeaderboard, fetchVisitorStats, registerVisit, startOfficialSession, submitOfficialReplay } from '../features/session/api';
 import { createVerificationBundle, getLocalForkConfig, getVerificationSummary } from '../features/session/buildIdentity';
 import { XtermTerminal } from '../features/terminal/XtermTerminal';
-import type { LeaderboardEntry, ReplayCommand, ReplaySubmission, SessionStartResponse } from '../shared/replay';
+import type { LeaderboardEntry, ReplayCommand, ReplaySubmission, SessionStartResponse, VisitorStatsResponse } from '../shared/replay';
 
 type TerminalMode = 'shell' | 'game';
 type TerminalThemeId = 'emerald' | 'amber' | 'ice';
@@ -54,6 +54,7 @@ export function App() {
   const [isBusy, setIsBusy] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [showHint, setShowHint] = useState(false);
+  const [visitorStats, setVisitorStats] = useState<VisitorStatsResponse | null>(null);
   const [runSummary, setRunSummary] = useState<RunSummary>({
     mode: 'idle',
     submissionState: 'idle',
@@ -81,6 +82,32 @@ export function App() {
   useEffect(() => {
     window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(uiSettings));
   }, [uiSettings]);
+
+  useEffect(() => {
+    const sessionId = getVisitorSessionId();
+    const payload = {
+      sessionId,
+      page: window.location.pathname,
+      referrer: document.referrer,
+      userAgent: navigator.userAgent,
+      language: navigator.language,
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      screen: `${window.screen.width}x${window.screen.height}`,
+    };
+
+    void registerVisit(payload)
+      .then((stats) => {
+        setVisitorStats(stats);
+      })
+      .catch(async () => {
+        try {
+          const stats = await fetchVisitorStats();
+          setVisitorStats(stats);
+        } catch {
+          setVisitorStats(null);
+        }
+      });
+  }, []);
 
   useEffect(() => {
     const nextLines = state.history.slice(appendedHistoryRef.current);
@@ -344,6 +371,8 @@ export function App() {
           createLine('output', `last_run_mode=${runSummary.mode}`),
           createLine('output', `last_submission=${runSummary.submissionState}`),
           createLine('output', `last_message=${runSummary.submissionMessage ?? 'none'}`),
+          createLine('output', `visits=${visitorStats?.totalVisits ?? 'unknown'}`),
+          createLine('output', `visitors=${visitorStats?.uniqueVisitors ?? 'unknown'}`),
         ],
         setTerminalLines,
       );
@@ -679,6 +708,24 @@ export function App() {
               </section>
 
               <section className="sidebar-section">
+                <p className="sidebar-heading">Visitors</p>
+                <div className="sidebar-stats">
+                  <div className="sidebar-stat-row">
+                    <span>Total visits</span>
+                    <strong className="status-active">{visitorStats?.totalVisits ?? '--'}</strong>
+                  </div>
+                  <div className="sidebar-stat-row">
+                    <span>Unique visitors</span>
+                    <strong className="status-good">{visitorStats?.uniqueVisitors ?? '--'}</strong>
+                  </div>
+                  <div className="sidebar-stat-row">
+                    <span>Last seen</span>
+                    <strong className="status-idle">{formatVisitTimestamp(visitorStats?.lastVisitAt ?? null)}</strong>
+                  </div>
+                </div>
+              </section>
+
+              <section className="sidebar-section">
                 <p className="sidebar-heading">Themes</p>
                 <div className="sidebar-theme-list">
                   {themeOptions.map((option) => (
@@ -864,4 +911,29 @@ function formatDurationMs(totalMs: number | null): string {
 async function sha256Hex(input: string): Promise<string> {
   const digest = await window.crypto.subtle.digest('SHA-256', new TextEncoder().encode(input));
   return Array.from(new Uint8Array(digest), (value) => value.toString(16).padStart(2, '0')).join('');
+}
+
+function getVisitorSessionId(): string {
+  const key = 'arch-trainer-visitor-session';
+  const existing = window.sessionStorage.getItem(key);
+  if (existing) {
+    return existing;
+  }
+
+  const next = window.crypto.randomUUID();
+  window.sessionStorage.setItem(key, next);
+  return next;
+}
+
+function formatVisitTimestamp(value: string | null): string {
+  if (!value) {
+    return 'offline';
+  }
+
+  const timestamp = Date.parse(value);
+  if (Number.isNaN(timestamp)) {
+    return 'unknown';
+  }
+
+  return new Date(timestamp).toLocaleString();
 }

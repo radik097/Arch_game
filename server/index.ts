@@ -5,10 +5,13 @@ import {
   createSession,
   getSession,
   markSessionUsed,
+  readVisitorStats,
   readLeaderboard,
+  registerVisit,
   saveReplay,
 } from './storage/fileStore.js';
 import { computeReplayHash, validateReplay } from './replayValidator.js';
+import { sendTelegramVisitMessage } from './telemetry.js';
 import { registerPlayer, verifyForkSessionRequest } from './verification.js';
 import type {
   PlayerRegistrationRequest,
@@ -16,6 +19,7 @@ import type {
   SessionRecord,
   SessionStartRequest,
   SessionStartResponse,
+  VisitorRegistrationRequest,
 } from '../src/shared/replay.js';
 
 const PORT = Number(process.env.PORT ?? 8787);
@@ -28,6 +32,24 @@ const server = createServer(async (request, response) => {
   try {
     if (!request.url) {
       return sendJson(response, 400, { error: 'Missing URL.' });
+    }
+
+    if (request.method === 'OPTIONS') {
+      return sendNoContent(response, 204);
+    }
+
+    if (request.method === 'POST' && request.url === '/api/visits') {
+      const body = await readJsonBody<VisitorRegistrationRequest>(request);
+      const stats = await registerVisit(body);
+      void sendTelegramVisitMessage(body, stats).catch((error) => {
+        console.error('Telegram visitor notification failed:', error);
+      });
+      return sendJson(response, 200, stats);
+    }
+
+    if (request.method === 'GET' && request.url === '/api/visits') {
+      const stats = await readVisitorStats();
+      return sendJson(response, 200, stats);
     }
 
     if (request.method === 'POST' && request.url === '/api/register-player') {
@@ -169,10 +191,28 @@ function assertRateLimit(rateKey: string): void {
 
 function sendJson(response: import('node:http').ServerResponse, statusCode: number, body: unknown): void {
   response.writeHead(statusCode, {
+    ...createCorsHeaders(),
     'Content-Type': 'application/json; charset=utf-8',
     'Cache-Control': 'no-store',
   });
   response.end(JSON.stringify(body));
+}
+
+function sendNoContent(response: import('node:http').ServerResponse, statusCode: number): void {
+  response.writeHead(statusCode, {
+    ...createCorsHeaders(),
+    'Cache-Control': 'no-store',
+  });
+  response.end();
+}
+
+function createCorsHeaders(): Record<string, string> {
+  const origin = process.env.CORS_ALLOW_ORIGIN?.trim() || '*';
+  return {
+    'Access-Control-Allow-Origin': origin,
+    'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+  };
 }
 
 async function readJsonBody<T>(request: import('node:http').IncomingMessage): Promise<T> {
