@@ -1,4 +1,5 @@
 import type {
+  AdminStatsResponse,
   LeaderboardEntry,
   ReplaySubmission,
   ReplayValidationResult,
@@ -39,6 +40,21 @@ export async function fetchVisitorStats(): Promise<VisitorStatsResponse> {
   }
 
   return (await response.json()) as VisitorStatsResponse;
+}
+
+export async function fetchAdminStats(user: string, password: string): Promise<AdminStatsResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/admin/stats`, {
+    headers: {
+      'x-admin-user': user,
+      'x-admin-password': password,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(response.status === 401 ? 'Invalid admin credentials.' : `Admin stats request failed with status ${response.status}`);
+  }
+
+  return (await response.json()) as AdminStatsResponse;
 }
 
 async function requestJson<T>(path: string, body: unknown): Promise<T> {
