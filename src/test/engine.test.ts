@@ -10,6 +10,10 @@ function buildInstallSequence() {
     state,
     commands: [
       `fdisk ${state.installTargetDisk}`,
+      'g',
+      'n',
+      'n',
+      'w',
       `mkfs.fat -F32 ${efiPartition}`,
       `mkfs.ext4 ${rootPartition}`,
       `mount ${rootPartition} /mnt`,
@@ -48,6 +52,30 @@ describe('Arch Trainer engine', () => {
     expect(nextState.history[nextState.history.length - 1]?.text).toContain('mount both /mnt and /mnt/boot');
   });
 
+  it('requires interactive fdisk commands before partitions exist', () => {
+    const state = createInitialState('beginner', { seed: 'test-seed-fdisk' });
+    const afterOpen = executeCommand(state, `fdisk ${state.installTargetDisk}`);
+    const mkfsInsideSession = executeCommand(afterOpen, `mkfs.fat -F32 ${state.installTargetDisk.includes('nvme') ? `${state.installTargetDisk}p1` : `${state.installTargetDisk}1`}`);
+    const afterQuit = executeCommand(afterOpen, 'q');
+    const mkfsBeforeWrite = executeCommand(afterQuit, `mkfs.fat -F32 ${state.installTargetDisk.includes('nvme') ? `${state.installTargetDisk}p1` : `${state.installTargetDisk}1`}`);
+    const completed = executeCommand(executeCommand(executeCommand(executeCommand(afterOpen, 'g'), 'n'), 'n'), 'w');
+
+    expect(mkfsInsideSession.history[mkfsInsideSession.history.length - 1]?.text).toContain('unknown interactive command');
+    expect(mkfsBeforeWrite.history[mkfsBeforeWrite.history.length - 1]?.text).toContain('No such EFI partition');
+    expect(completed.disks.find((disk) => disk.device === state.installTargetDisk)?.partitions.length).toBe(2);
+  });
+
+  it('opens fdisk without auto-creating partitions', () => {
+    const state = createInitialState('beginner', { seed: 'test-seed-fdisk-open' });
+    const opened = executeCommand(state, `fdisk ${state.installTargetDisk}`);
+    const targetDisk = opened.disks.find((disk) => disk.device === state.installTargetDisk);
+    const historyTail = opened.history.slice(-4).map((line) => line.text).join('\n');
+
+    expect(targetDisk?.partitions.length ?? 0).toBe(0);
+    expect(historyTail).toContain('Command (m for help):');
+    expect(historyTail).not.toContain('Created');
+  });
+
   it('completes the guided install path and reboots successfully', () => {
     const { state, commands } = buildInstallSequence();
     const finalState = runSequence(state, commands);
@@ -55,6 +83,16 @@ describe('Arch Trainer engine', () => {
     expect(finalState.completed).toBe(true);
     expect(finalState.install.rebooted).toBe(true);
     expect(finalState.history[finalState.history.length - 1]?.text).toContain('Arch Linux installed');
+  });
+
+  it('supports pacman -Syu only inside arch-chroot', () => {
+    const { state, commands } = buildInstallSequence();
+    const outside = executeCommand(state, 'pacman -Syu');
+    const untilChroot = commands.slice(0, commands.indexOf('arch-chroot /mnt') + 1).reduce((current, command) => executeCommand(current, command), state);
+    const inside = executeCommand(untilChroot, 'pacman -Syu');
+
+    expect(outside.history[outside.history.length - 1]?.text).toContain('run pacman -Syu from inside arch-chroot');
+    expect(inside.install.packagesUpdated).toBe(true);
   });
 
   it('requires wifi recovery in expert mode', () => {

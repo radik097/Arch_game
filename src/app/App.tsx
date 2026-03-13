@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { deriveObjectives } from '../features/simulator/objectives';
 import { completeInput, createInitialState, executeCommand, getPromptLabel } from '../features/simulator/engine';
-import type { Difficulty, GameState, TerminalLine } from '../features/simulator/types';
+import type { Difficulty, GameState, ObjectiveId, TerminalLine } from '../features/simulator/types';
 import { fetchLeaderboard, fetchVisitorStats, registerVisit, startOfficialSession, submitOfficialReplay } from '../features/session/api';
 import { createVerificationBundle, getLocalForkConfig, getVerificationSummary } from '../features/session/buildIdentity';
 import { XtermTerminal } from '../features/terminal/XtermTerminal';
@@ -39,10 +39,28 @@ interface OfficialRun {
 
 type ActiveRun = LocalRun | OfficialRun;
 
+interface CheckpointSnapshot {
+  id: ObjectiveId;
+  title: string;
+  snapshot: GameState;
+}
+
+interface SavedSession {
+  savedAt: number;
+  mode: TerminalMode;
+  state: GameState;
+  terminalLines: TerminalLine[];
+  runSummary: RunSummary;
+  activeRun: ActiveRun | null;
+  checkpoints: CheckpointSnapshot[];
+}
+
 const CLIENT_VERSION = '0.1.0';
 const CONTROL_USER = 'root';
 const CONTROL_HOST = 'archiso';
 const SETTINGS_KEY = 'arch-trainer-terminal-settings-v1';
+const SESSION_KEY = 'arch-trainer-session-v1';
+const TUTOR_KEY = 'arch-trainer-tutorial-complete-v1';
 let lineCounter = 0;
 
 export function App() {
@@ -55,6 +73,11 @@ export function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [showHint, setShowHint] = useState(false);
   const [visitorStats, setVisitorStats] = useState<VisitorStatsResponse | null>(null);
+  const [welcomeOpen, setWelcomeOpen] = useState(true);
+  const [tutorialOpen, setTutorialOpen] = useState(false);
+  const [tutorialStep, setTutorialStep] = useState(0);
+  const [checkpoints, setCheckpoints] = useState<CheckpointSnapshot[]>([]);
+  const [sessionLoaded, setSessionLoaded] = useState(false);
   const [runSummary, setRunSummary] = useState<RunSummary>({
     mode: 'idle',
     submissionState: 'idle',
@@ -82,6 +105,40 @@ export function App() {
   useEffect(() => {
     window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(uiSettings));
   }, [uiSettings]);
+
+  useEffect(() => {
+    const restored = loadSavedSession();
+    if (!restored) {
+      setSessionLoaded(true);
+      return;
+    }
+
+    setMode(restored.mode);
+    setState(restored.state);
+    setTerminalLines(restored.terminalLines);
+    setRunSummary(restored.runSummary);
+    setCheckpoints(restored.checkpoints);
+    setWelcomeOpen(false);
+    activeRunRef.current = restored.activeRun;
+    appendedHistoryRef.current = restored.state.history.length;
+    setSessionLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (!sessionLoaded) {
+      return;
+    }
+
+    saveSession({
+      savedAt: Date.now(),
+      mode,
+      state,
+      terminalLines,
+      runSummary,
+      activeRun: activeRunRef.current,
+      checkpoints,
+    });
+  }, [sessionLoaded, mode, state, terminalLines, runSummary, checkpoints]);
 
   useEffect(() => {
     const sessionId = getVisitorSessionId();
@@ -118,6 +175,32 @@ export function App() {
     setTerminalLines((current) => [...current, ...nextLines]);
     appendedHistoryRef.current = state.history.length;
   }, [state.history]);
+
+  useEffect(() => {
+    if (mode !== 'game') {
+      return;
+    }
+
+    const completed = deriveObjectives(state).filter((objective) => objective.completed);
+    if (completed.length === 0) {
+      return;
+    }
+
+    setCheckpoints((current) => {
+      const next = [...current];
+      for (const objective of completed) {
+        if (next.some((checkpoint) => checkpoint.id === objective.id)) {
+          continue;
+        }
+        next.push({
+          id: objective.id,
+          title: objective.title,
+          snapshot: cloneGameState(state),
+        });
+      }
+      return next;
+    });
+  }, [mode, state]);
 
   useEffect(() => {
     const activeRun = activeRunRef.current;
@@ -198,12 +281,12 @@ export function App() {
       });
   }, [mode, state.completed, state, setTerminalLines]);
 
-  async function startRun(difficulty: Difficulty) {
+  async function startRun(difficulty: Difficulty, forceLocal = false) {
     setIsBusy(true);
     setMenuOpen(false);
     let officialSession: SessionStartResponse | null = null;
 
-    if (verificationBundle) {
+    if (!forceLocal && verificationBundle) {
       try {
         officialSession = await startOfficialSession({
           difficulty,
@@ -256,6 +339,7 @@ export function App() {
 
     appendedHistoryRef.current = 0;
     setState(nextState);
+    setCheckpoints([]);
     setRunSummary({
       mode: officialSession ? 'official' : 'local',
       submissionState: 'idle',
@@ -282,6 +366,11 @@ export function App() {
       return;
     }
 
+    if (normalized === 'sandbox') {
+      await startRun(uiSettings.preferredDifficulty, true);
+      return;
+    }
+
     if (normalized.startsWith('start ')) {
       const difficulty = parseDifficultyToken(normalized.split(/\s+/)[1]);
       if (!difficulty) {
@@ -290,6 +379,17 @@ export function App() {
       }
 
       await startRun(difficulty);
+      return;
+    }
+
+    if (normalized.startsWith('sandbox ')) {
+      const difficulty = parseDifficultyToken(normalized.split(/\s+/)[1]);
+      if (!difficulty) {
+        appendLines([createLine('error', 'usage: sandbox <beginner|experienced|expert|god>')], setTerminalLines);
+        return;
+      }
+
+      await startRun(difficulty, true);
       return;
     }
 
@@ -478,6 +578,10 @@ export function App() {
       return;
     }
 
+    if (tutorialOpen && tutorialStep === 2 && command.trim().toLowerCase() === 'lsblk') {
+      setTutorialStep(3);
+    }
+
     appendLines([createLine('command', `${getPromptLabel(state)} ${command}`)], setTerminalLines);
     await handleShellCommand(command);
   }
@@ -597,6 +701,20 @@ export function App() {
                 >
                   Start Session
                 </button>
+                <button
+                  className="menu-action menu-action-secondary"
+                  onClick={() => {
+                    if (mode !== 'shell') {
+                      appendLines([createLine('error', 'finish or abort the active installer session first')], setTerminalLines);
+                      setMenuOpen(false);
+                      return;
+                    }
+                    void startRun(uiSettings.preferredDifficulty, true);
+                  }}
+                  type="button"
+                >
+                  Start Sandbox
+                </button>
               </div>
 
               <div className="menu-section">
@@ -614,7 +732,6 @@ export function App() {
                   ))}
                 </div>
               </div>
-                          appendLines([createLine('error', 'finish or abort the active installer session first')], setTerminalLines);
               <div className="menu-section">
                 <p className="menu-label">Settings</p>
                 <label className="menu-toggle-row">
@@ -708,6 +825,23 @@ export function App() {
               </section>
 
               <section className="sidebar-section">
+                <p className="sidebar-heading">Checkpoints</p>
+                <div className="sidebar-theme-list">
+                  {checkpoints.length === 0 ? <span className="status-idle">No checkpoints yet</span> : null}
+                  {checkpoints.map((checkpoint) => (
+                    <button
+                      key={checkpoint.id}
+                      className="sidebar-theme-button"
+                      onClick={() => restoreCheckpoint(checkpoint, setState, setTerminalLines, setMode, setRunSummary, activeRunRef, appendedHistoryRef)}
+                      type="button"
+                    >
+                      Restore: {checkpoint.title}
+                    </button>
+                  ))}
+                </div>
+              </section>
+
+              <section className="sidebar-section">
                 <p className="sidebar-heading">Visitors</p>
                 <div className="sidebar-stats">
                   <div className="sidebar-stat-row">
@@ -743,6 +877,133 @@ export function App() {
             </aside>
           </div>
         </div>
+
+        {welcomeOpen ? (
+          <div className="welcome-overlay" role="dialog" aria-modal="true">
+            <div className="welcome-card">
+              <h2>Arch Trainer</h2>
+              <p>Arch Linux Installation Simulator</p>
+              <p>Choose your entry mode.</p>
+              <div className="tutorial-actions">
+                <button
+                  className="menu-action"
+                  onClick={() => {
+                    setWelcomeOpen(false);
+                    setTutorialOpen(true);
+                    setTutorialStep(0);
+                  }}
+                  type="button"
+                >
+                  Play Tutorial
+                </button>
+                <button
+                  className="menu-action"
+                  onClick={() => {
+                    window.localStorage.setItem(TUTOR_KEY, '1');
+                    setWelcomeOpen(false);
+                    setTutorialOpen(false);
+                    void startRun(uiSettings.preferredDifficulty);
+                  }}
+                  type="button"
+                >
+                  Start Training
+                </button>
+                <button
+                  className="menu-action menu-action-secondary"
+                  onClick={() => {
+                    window.localStorage.setItem(TUTOR_KEY, '1');
+                    setWelcomeOpen(false);
+                    setTutorialOpen(false);
+                    void startRun(uiSettings.preferredDifficulty, true);
+                  }}
+                  type="button"
+                >
+                  Sandbox
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {tutorialOpen ? (
+          <div className="tutorial-overlay" role="dialog" aria-modal="true">
+            <div className="tutorial-card">
+              {tutorialStep === 0 ? (
+                <>
+                  <h2>Welcome to Arch Trainer</h2>
+                  <p>This simulator teaches the logic of a real Arch Linux installation.</p>
+                  <p>Nothing here touches your real system.</p>
+                </>
+              ) : null}
+
+              {tutorialStep === 1 ? (
+                <>
+                  <h2>Terminal-first gameplay</h2>
+                  <p>You type real Linux-style commands and press Enter.</p>
+                  <p>Commands change simulated system state. If you skip steps, later commands may fail.</p>
+                </>
+              ) : null}
+
+              {tutorialStep === 2 ? (
+                <>
+                  <h2>First command</h2>
+                  <p>Try typing:</p>
+                  <p><strong>lsblk</strong></p>
+                </>
+              ) : null}
+
+              {tutorialStep >= 3 ? (
+                <>
+                  <h2>Ready</h2>
+                  <p>You are now in the Arch ISO environment. Try exploring the system.</p>
+                </>
+              ) : null}
+
+              <div className="tutorial-actions">
+                {tutorialStep > 0 ? (
+                  <button className="menu-action menu-action-secondary" onClick={() => setTutorialStep((current) => Math.max(0, current - 1))} type="button">
+                    Back
+                  </button>
+                ) : null}
+                {tutorialStep < 2 ? (
+                  <button className="menu-action" onClick={() => setTutorialStep((current) => current + 1)} type="button">
+                    Next
+                  </button>
+                ) : null}
+                {tutorialStep === 2 ? (
+                  <button className="menu-action" onClick={() => setTutorialStep(3)} type="button">
+                    Skip step
+                  </button>
+                ) : null}
+                {tutorialStep >= 3 ? (
+                  <button
+                    className="menu-action"
+                    onClick={() => {
+                      window.localStorage.setItem(TUTOR_KEY, '1');
+                      setTutorialOpen(false);
+                    }}
+                    type="button"
+                  >
+                    Start Training
+                  </button>
+                ) : null}
+                {tutorialStep >= 3 ? (
+                  <button
+                    className="menu-action menu-action-secondary"
+                    onClick={() => {
+                      window.localStorage.setItem(TUTOR_KEY, '1');
+                      setTutorialOpen(false);
+                      void startRun(uiSettings.preferredDifficulty, true);
+                    }}
+                    type="button"
+                  >
+                    Start Sandbox
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        ) : null}
       </section>
     </main>
   );
@@ -795,6 +1056,7 @@ function createHelpLines(): TerminalLine[] {
   return [
     createLine('system', 'sessionctl help'),
     createLine('output', 'start [difficulty]'),
+    createLine('output', 'sandbox [difficulty]'),
     createLine('output', 'sessionctl start <beginner|experienced|expert|god>'),
     createLine('output', 'sessionctl leaderboard [difficulty]'),
     createLine('output', 'sessionctl status'),
@@ -936,4 +1198,52 @@ function formatVisitTimestamp(value: string | null): string {
   }
 
   return new Date(timestamp).toLocaleString();
+}
+
+function cloneGameState(state: GameState): GameState {
+  return JSON.parse(JSON.stringify(state)) as GameState;
+}
+
+function saveSession(payload: SavedSession): void {
+  window.localStorage.setItem(SESSION_KEY, JSON.stringify(payload));
+}
+
+function loadSavedSession(): SavedSession | null {
+  const raw = window.localStorage.getItem(SESSION_KEY);
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(raw) as SavedSession;
+  } catch {
+    return null;
+  }
+}
+
+function restoreCheckpoint(
+  checkpoint: CheckpointSnapshot,
+  setState: React.Dispatch<React.SetStateAction<GameState>>,
+  setTerminalLines: React.Dispatch<React.SetStateAction<TerminalLine[]>>,
+  setMode: React.Dispatch<React.SetStateAction<TerminalMode>>,
+  setRunSummary: React.Dispatch<React.SetStateAction<RunSummary>>,
+  activeRunRef: React.MutableRefObject<ActiveRun | null>,
+  appendedHistoryRef: React.MutableRefObject<number>,
+): void {
+  const restored = cloneGameState(checkpoint.snapshot);
+  activeRunRef.current = {
+    mode: 'local',
+    commands: [],
+    submitted: false,
+  };
+  appendedHistoryRef.current = restored.history.length;
+  setState(restored);
+  setTerminalLines(restored.history);
+  setMode('game');
+  setRunSummary({
+    mode: 'local',
+    submissionState: 'idle',
+    submissionMessage: `Restored checkpoint: ${checkpoint.title}`,
+    officialTimeMs: null,
+  });
 }

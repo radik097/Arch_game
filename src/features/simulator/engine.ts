@@ -50,6 +50,7 @@ export function createInitialState(difficulty: Difficulty, options: CreateInitia
       selectedDisk: null,
       rootMounted: false,
       bootMounted: false,
+      packagesUpdated: false,
       packagesInstalled: false,
       fstabGenerated: false,
       inChroot: false,
@@ -76,6 +77,12 @@ export function createInitialState(difficulty: Difficulty, options: CreateInitia
       mode: 'browser',
       browserProfile: null,
       currentDirectory: '/root',
+      fdiskSession: {
+        active: false,
+        device: null,
+        hasGpt: false,
+        draftPartitions: [],
+      },
     },
   };
 
@@ -113,12 +120,17 @@ export function executeCommand(state: GameState, rawInput: string): GameState {
   const efiPartition = getPartitionByRole(state, 'efi');
   const rootPartition = getPartitionByRole(state, 'root');
 
+  if (state.runtime.fdiskSession.active) {
+    return withCommandProgress(handleFdiskSessionCommand(state, commandLine, input));
+  }
+
   if (input === 'help') {
     return finalizeState(state, [
       commandLine,
       createLine('output', 'Supported Linux simulator path:'),
       createLine('output', 'lsblk | ip link | cat /proc/cpuinfo | cat /proc/meminfo | cat /sys/class/net'),
       createLine('output', `fdisk ${state.installTargetDisk}`),
+      createLine('output', 'fdisk -l'),
       createLine('output', 'modprobe iwlwifi | ip link set <if> up | iwctl station wlan0 connect ArchTrainerLab'),
       createLine('output', `mkfs.fat -F32 ${partitionName(state.installTargetDisk, 1)}`),
       createLine('output', `mkfs.ext4 ${partitionName(state.installTargetDisk, 2)}`),
@@ -338,6 +350,10 @@ export function executeCommand(state: GameState, rawInput: string): GameState {
   }
 
   if (cmd === 'fdisk') {
+    if (args[0] === '-l') {
+      return withCommandProgress(finalizeState(state, [commandLine, ...renderLsblk(state)]));
+    }
+
     const device = args[0];
     const disk = state.disks.find((item) => item.device === device);
     if (!disk) {
@@ -352,39 +368,31 @@ export function executeCommand(state: GameState, rawInput: string): GameState {
       return fallback(`fdisk: ${device} is not the target disk for this seeded scenario.`);
     }
 
-    if (disk.partitions.length >= 2) {
-      return fallback(`fdisk: ${device} already has the guided partition layout.`);
-    }
-
-    const updatedDisk: DiskState = {
-      ...disk,
-      partitions: [
-        { name: partitionName(device, 1), size: '512M', role: 'efi', filesystem: null },
-        { name: partitionName(device, 2), size: disk.size, role: 'root', filesystem: null },
-      ],
-    };
-
     return withCommandProgress(
       advanceState(
         {
           ...state,
-          install: {
-            ...state.install,
-            selectedDisk: device,
+          runtime: {
+            ...state.runtime,
+            fdiskSession: {
+              active: true,
+              device,
+              hasGpt: false,
+              draftPartitions: [],
+            },
           },
-          disks: replaceDisk(state.disks, updatedDisk),
-          pseudoFs: rebuildPseudoFs(state, replaceDisk(state.disks, updatedDisk)),
-          lastEvent: `Partition table written to ${device}.`,
+          lastEvent: `Entered fdisk interactive mode for ${device}.`,
         },
         [
           commandLine,
-          createLine('output', `Opened ${device} in guided fdisk mode.`),
-          createLine('success', `Created ${partitionName(device, 1)} as EFI System and ${partitionName(device, 2)} as Linux filesystem.`),
+          createLine('output', `Welcome to fdisk (util-linux 2.40).`),
+          createLine('output', `Device: ${device}`),
+          createLine('output', 'Command (m for help):'),
         ],
         {
           title: 'Disk selection',
-          ru: 'Сначала нужно определить правильный диск, особенно если в системе есть USB и второй накопитель.',
-          en: 'You need to identify the correct installation target first, especially when USB and secondary disks are present.',
+          ru: 'fdisk должен быть интерактивным: таблица и разделы пишутся только после команды w.',
+          en: 'fdisk must be interactive: partition changes are written only after the w command.',
         },
       ),
     );
@@ -443,7 +451,13 @@ export function executeCommand(state: GameState, rawInput: string): GameState {
           },
           lastEvent: `${device} mounted on ${mountPoint}.`,
         },
-        [commandLine, createLine('success', `${device} mounted on ${mountPoint}.`)],
+        [
+          commandLine,
+          createLine('success', `${device} mounted on ${mountPoint}.`),
+          ...beginnerExplanation(state, mountPoint === '/mnt'
+            ? 'This attaches the root partition to /mnt, where Arch will be installed.'
+            : 'This mounts the EFI partition to /mnt/boot so GRUB can install boot files.'),
+        ],
         null,
       ),
     );
@@ -506,6 +520,43 @@ export function executeCommand(state: GameState, rawInput: string): GameState {
           commandLine,
           createLine('output', ':: Synchronizing package databases...'),
           createLine('success', 'Installed base linux linux-firmware networkmanager grub efibootmgr into /mnt.'),
+          ...beginnerExplanation(state, 'This installs the base Arch system into /mnt, creating your target root filesystem.'),
+        ],
+        null,
+      ),
+    );
+  }
+
+  if (cmd === 'pacman' && args[0] === '-Syu') {
+    if (!state.install.inChroot) {
+      return fallback('pacman: run pacman -Syu from inside arch-chroot.');
+    }
+
+    if (!isNetworkReady(state)) {
+      return fallback('pacman: failed to synchronize all databases (network unavailable).');
+    }
+
+    const mirrorEvent = state.events.find((event) => event.id === 'mirror_timeout' && event.active && !event.resolved);
+    if (mirrorEvent) {
+      return fallback('pacman: mirror database is stale or unreachable. Refresh mirrorlist first.');
+    }
+
+    return withCommandProgress(
+      advanceState(
+        {
+          ...state,
+          install: {
+            ...state.install,
+            packagesUpdated: true,
+          },
+          lastEvent: 'Package database synchronized and system packages updated.',
+        },
+        [
+          commandLine,
+          createLine('output', ':: Synchronizing package databases...'),
+          createLine('output', ':: Starting full system upgrade...'),
+          createLine('success', 'there is nothing to do'),
+          ...beginnerExplanation(state, 'This refreshes package databases and upgrades installed packages in the target system.'),
         ],
         null,
       ),
@@ -527,7 +578,11 @@ export function executeCommand(state: GameState, rawInput: string): GameState {
           },
           lastEvent: 'fstab generated with UUID entries.',
         },
-        [commandLine, createLine('success', 'Generated fstab with UUID-based entries.')],
+        [
+          commandLine,
+          createLine('success', 'Generated fstab with UUID-based entries.'),
+          ...beginnerExplanation(state, 'This writes persistent mount rules so the installed system can mount partitions on boot.'),
+        ],
         null,
       ),
     );
@@ -1136,10 +1191,193 @@ function findEntries(virtualFs: ReturnType<typeof buildVirtualFs>, basePath: str
   return Array.from(results).sort();
 }
 
+function handleFdiskSessionCommand(state: GameState, commandLine: TerminalLine, input: string): GameState {
+  const session = state.runtime.fdiskSession;
+  const device = session.device;
+  if (!device) {
+    return failState(state, commandLine, 'fdisk: interactive session lost target device.');
+  }
+
+  const disk = state.disks.find((item) => item.device === device);
+  if (!disk) {
+    return failState(state, commandLine, `fdisk: cannot open ${device}: No such device`);
+  }
+
+  const withPrompt = (lines: TerminalLine[]): TerminalLine[] => [...lines, createLine('output', 'Command (m for help):')];
+
+  if (input === 'm') {
+    return finalizeState(state, withPrompt([
+      commandLine,
+      createLine('output', 'g   create a new empty GPT partition table'),
+      createLine('output', 'n   add a new partition'),
+      createLine('output', 't   change a partition type'),
+      createLine('output', 'p   print the partition table'),
+      createLine('output', 'w   write table to disk and exit'),
+      createLine('output', 'q   quit without saving changes'),
+    ]));
+  }
+
+  if (input === 'g') {
+    return finalizeState(
+      {
+        ...state,
+        runtime: {
+          ...state.runtime,
+          fdiskSession: {
+            ...session,
+            hasGpt: true,
+            draftPartitions: [],
+          },
+        },
+      },
+      withPrompt([commandLine, createLine('success', 'Created a new GPT disklabel.')]),
+    );
+  }
+
+  if (input === 'n') {
+    if (!session.hasGpt) {
+      return failState(state, commandLine, 'fdisk: create a GPT label first with g.');
+    }
+
+    if (session.draftPartitions.length >= 2) {
+      return failState(state, commandLine, 'fdisk: simulator supports two install partitions in this scenario.');
+    }
+
+    const nextIndex = session.draftPartitions.length + 1;
+    const nextPartition: PartitionState = {
+      name: partitionName(device, nextIndex),
+      size: nextIndex === 1 ? '512M' : disk.size,
+      role: nextIndex === 1 ? 'efi' : 'root',
+      filesystem: null,
+    };
+
+    return finalizeState(
+      {
+        ...state,
+        runtime: {
+          ...state.runtime,
+          fdiskSession: {
+            ...session,
+            draftPartitions: [...session.draftPartitions, nextPartition],
+          },
+        },
+      },
+      withPrompt([commandLine, createLine('success', `Created partition ${nextPartition.name}.`)]),
+    );
+  }
+
+  if (input === 't') {
+    if (session.draftPartitions.length === 0) {
+      return failState(state, commandLine, 'fdisk: add a partition first with n.');
+    }
+
+    const draft = [...session.draftPartitions];
+    if (draft[0]) {
+      draft[0] = {
+        ...draft[0],
+        role: 'efi',
+      };
+    }
+
+    return finalizeState(
+      {
+        ...state,
+        runtime: {
+          ...state.runtime,
+          fdiskSession: {
+            ...session,
+            draftPartitions: draft,
+          },
+        },
+      },
+      withPrompt([commandLine, createLine('output', 'Changed type of partition 1 to EFI System.')]),
+    );
+  }
+
+  if (input === 'p') {
+    const partitionLines = session.draftPartitions.length === 0
+      ? [createLine('output', 'No partitions defined yet.')]
+      : session.draftPartitions.map((partition, index) =>
+        createLine('output', `${index + 1} ${partition.name} ${partition.size} ${partition.role}`),
+      );
+
+    return finalizeState(state, withPrompt([commandLine, ...partitionLines]));
+  }
+
+  if (input === 'w') {
+    if (!session.hasGpt || session.draftPartitions.length < 2) {
+      return failState(state, commandLine, 'fdisk: create GPT and at least two partitions before writing.');
+    }
+
+    const updatedDisk: DiskState = {
+      ...disk,
+      partitions: session.draftPartitions,
+    };
+
+    const nextDisks = replaceDisk(state.disks, updatedDisk);
+    return advanceState(
+      {
+        ...state,
+        install: {
+          ...state.install,
+          selectedDisk: device,
+        },
+        disks: nextDisks,
+        pseudoFs: rebuildPseudoFs(state, nextDisks),
+        runtime: {
+          ...state.runtime,
+          fdiskSession: {
+            active: false,
+            device: null,
+            hasGpt: false,
+            draftPartitions: [],
+          },
+        },
+        lastEvent: `Partition table written to ${device}.`,
+      },
+      [
+        commandLine,
+        createLine('success', `Wrote partition table to ${device}.`),
+        createLine('output', `${partitionName(device, 1)} EFI System`),
+        createLine('output', `${partitionName(device, 2)} Linux filesystem`),
+        ...beginnerExplanation(state, 'g creates GPT, n adds partitions, and w commits partition changes to disk.'),
+      ],
+      null,
+    );
+  }
+
+  if (input === 'q') {
+    return finalizeState(
+      {
+        ...state,
+        runtime: {
+          ...state.runtime,
+          fdiskSession: {
+            active: false,
+            device: null,
+            hasGpt: false,
+            draftPartitions: [],
+          },
+        },
+      },
+      [commandLine, createLine('output', 'Aborted fdisk without writing changes.')],
+    );
+  }
+
+  return failState(state, commandLine, `fdisk: unknown interactive command '${input}'. Try m for help.`);
+}
+
+function beginnerExplanation(state: GameState, text: string): TerminalLine[] {
+  if (state.difficulty !== 'beginner') {
+    return [];
+  }
+  return [createLine('info', `Explanation: ${text}`)];
+}
+
 function getCommandSuggestions(): string[] {
   return [
     'help', 'ls', 'lsblk', 'cd', 'cat', 'pwd', 'find', 'ping', 'ip', 'fdisk', 'mount', 'umount',
-    'mkfs.ext4', 'mkfs.fat', 'pacstrap', 'genfstab', 'arch-chroot', 'modprobe', 'iwctl', 'passwd',
+    'mkfs.ext4', 'mkfs.fat', 'pacstrap', 'pacman', 'genfstab', 'arch-chroot', 'modprobe', 'iwctl', 'passwd',
     'locale-gen', 'hwclock', 'systemctl', 'grub-install', 'grub-mkconfig', 'reflector', 'ln', 'echo',
     'reboot', 'exit', 'clear', 'start', 'sessionctl',
   ];

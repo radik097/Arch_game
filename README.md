@@ -1,6 +1,6 @@
 # Arch Trainer MVP
 
-Arch Trainer is a browser-first educational simulator for the Arch Linux installation flow. This MVP focuses on a single realistic UEFI installation path, terminal-first interaction, and a simulation core that validates commands against system state instead of accepting them as static puzzles.
+Arch Trainer is a safe environment to learn the logic of a real Arch Linux installation before trying it on real hardware or a virtual machine. This MVP focuses on a single realistic UEFI installation path, terminal-first interaction, and a simulation core that validates commands against system state instead of accepting them as static puzzles.
 
 The client is intentionally forkable, mirrorable, and runnable anywhere. Official leaderboard influence is restricted to server-issued sessions that pass fork verification, build proof validation, hash-chained replay checks, and deterministic server-side re-simulation.
 
