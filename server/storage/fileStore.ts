@@ -2,7 +2,7 @@ import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import type {
-  AdminStatsResponse,
+  StatsResponse,
   LeaderboardEntry,
   PlayerRecord,
   ReplaySubmission,
@@ -99,7 +99,7 @@ export async function readVisitorStats(): Promise<VisitorStatsResponse> {
   return createVisitorStatsResponse(current);
 }
 
-export async function readAdminStats(): Promise<AdminStatsResponse> {
+export async function readStats(): Promise<StatsResponse> {
   const visitors = await readJson<VisitorStore>(visitorsPath, createEmptyVisitorStore());
   const sessions = await readJson<SessionRecord[]>(sessionsPath, []);
   const players = await readJson<PlayerRecord[]>(playersPath, []);

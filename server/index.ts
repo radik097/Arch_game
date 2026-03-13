@@ -5,7 +5,7 @@ import {
   createSession,
   getSession,
   markSessionUsed,
-  readAdminStats,
+  readStats,
   readVisitorStats,
   readLeaderboard,
   registerVisit,
@@ -27,8 +27,6 @@ const PORT = Number(process.env.PORT ?? 8787);
 const SESSION_TTL_MS = 15 * 60 * 1000;
 const SESSION_RATE_LIMIT_MAX = 5;
 const SESSION_RATE_LIMIT_WINDOW_MS = 60 * 1000;
-const ADMIN_USER = 'root';
-const ADMIN_PASSWORD = 'GNOME-kde-plasma-log';
 const startSessionAttempts = new Map<string, number[]>();
 
 const server = createServer(async (request, response) => {
@@ -55,11 +53,8 @@ const server = createServer(async (request, response) => {
       return sendJson(response, 200, stats, request);
     }
 
-    if (request.method === 'GET' && request.url === '/api/admin/stats') {
-      if (!isAdminAuthorized(request)) {
-        return sendJson(response, 401, { error: 'Unauthorized admin access.' }, request);
-      }
-      const stats = await readAdminStats();
+    if (request.method === 'GET' && request.url === '/api/stats') {
+      const stats = await readStats();
       return sendJson(response, 200, stats, request);
     }
 
@@ -237,18 +232,8 @@ function createCorsHeaders(request?: import('node:http').IncomingMessage): Recor
   return {
     'Access-Control-Allow-Origin': origin,
     'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type,x-admin-user,x-admin-password',
+    'Access-Control-Allow-Headers': 'Content-Type',
   };
-}
-
-function isAdminAuthorized(request: import('node:http').IncomingMessage): boolean {
-  const user = request.headers['x-admin-user'];
-  const password = request.headers['x-admin-password'];
-
-  const adminUser = Array.isArray(user) ? user[0] : user;
-  const adminPassword = Array.isArray(password) ? password[0] : password;
-
-  return adminUser === ADMIN_USER && adminPassword === ADMIN_PASSWORD;
 }
 
 async function readJsonBody<T>(request: import('node:http').IncomingMessage): Promise<T> {
