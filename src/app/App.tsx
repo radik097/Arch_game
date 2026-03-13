@@ -2,10 +2,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { deriveObjectives } from '../features/simulator/objectives';
 import { completeInput, createInitialState, executeCommand, getPromptLabel } from '../features/simulator/engine';
 import type { Difficulty, GameState, ObjectiveId, TerminalLine } from '../features/simulator/types';
-import { fetchAdminStats, fetchLeaderboard, fetchVisitorStats, registerVisit, startOfficialSession, submitOfficialReplay } from '../features/session/api';
+import { fetchLeaderboard, fetchVisitorStats, registerVisit, startOfficialSession, submitOfficialReplay } from '../features/session/api';
 import { createVerificationBundle, getLocalForkConfig, getVerificationSummary } from '../features/session/buildIdentity';
 import { XtermTerminal } from '../features/terminal/XtermTerminal';
-import type { AdminStatsResponse, LeaderboardEntry, ReplayCommand, ReplaySubmission, SessionStartResponse, VisitorStatsResponse } from '../shared/replay';
+import type { LeaderboardEntry, ReplayCommand, ReplaySubmission, SessionStartResponse, VisitorStatsResponse } from '../shared/replay';
 
 type TerminalMode = 'shell' | 'game';
 type TerminalThemeId = 'emerald' | 'amber' | 'ice';
@@ -71,7 +71,6 @@ export function App() {
   const [now, setNow] = useState(() => Date.now());
   const [isBusy, setIsBusy] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [adminOpen, setAdminOpen] = useState(false);
   const [showHint, setShowHint] = useState(false);
   const [visitorStats, setVisitorStats] = useState<VisitorStatsResponse | null>(null);
   const [welcomeOpen, setWelcomeOpen] = useState(true);
@@ -79,12 +78,6 @@ export function App() {
   const [tutorialStep, setTutorialStep] = useState(0);
   const [checkpoints, setCheckpoints] = useState<CheckpointSnapshot[]>([]);
   const [sessionLoaded, setSessionLoaded] = useState(false);
-  const [adminUser, setAdminUser] = useState('root');
-  const [adminPassword, setAdminPassword] = useState('');
-  const [adminLoggedIn, setAdminLoggedIn] = useState(false);
-  const [adminBusy, setAdminBusy] = useState(false);
-  const [adminError, setAdminError] = useState<string | null>(null);
-  const [adminStats, setAdminStats] = useState<AdminStatsResponse | null>(null);
   const [runSummary, setRunSummary] = useState<RunSummary>({
     mode: 'idle',
     submissionState: 'idle',
@@ -606,39 +599,6 @@ export function App() {
     { id: 'ice', label: 'Ice Console' },
   ];
 
-  async function handleAdminLogin() {
-    setAdminBusy(true);
-    setAdminError(null);
-    try {
-      const stats = await fetchAdminStats(adminUser, adminPassword);
-      setAdminStats(stats);
-      setAdminLoggedIn(true);
-    } catch (error) {
-      setAdminError(error instanceof Error ? error.message : 'Admin login failed.');
-      setAdminLoggedIn(false);
-      setAdminStats(null);
-    } finally {
-      setAdminBusy(false);
-    }
-  }
-
-  async function refreshAdminStats() {
-    if (!adminLoggedIn) {
-      return;
-    }
-
-    setAdminBusy(true);
-    setAdminError(null);
-    try {
-      const stats = await fetchAdminStats(adminUser, adminPassword);
-      setAdminStats(stats);
-    } catch (error) {
-      setAdminError(error instanceof Error ? error.message : 'Admin refresh failed.');
-    } finally {
-      setAdminBusy(false);
-    }
-  }
-
   return (
     <main className={`app-shell theme-${uiSettings.theme}`}>
       <section className="terminal-stage bash-stage">
@@ -674,13 +634,6 @@ export function App() {
                 type="button"
               >
                 LB
-              </button>
-              <button
-                className={`topbar-icon-button${adminOpen ? ' is-active' : ''}`}
-                onClick={() => setAdminOpen((current) => !current)}
-                type="button"
-              >
-                ADM
               </button>
               {hintText ? (
                 <button
@@ -802,73 +755,6 @@ export function App() {
                 >
                   Print Help
                 </button>
-              </div>
-            </aside>
-          ) : null}
-
-          {adminOpen ? (
-            <aside className="terminal-menu-panel admin-panel">
-              <div className="menu-section">
-                <p className="menu-label">Admin Access</p>
-                {!adminLoggedIn ? (
-                  <>
-                    <label className="menu-field">
-                      <span>Login</span>
-                      <input value={adminUser} onChange={(event) => setAdminUser(event.target.value)} type="text" />
-                    </label>
-                    <label className="menu-field">
-                      <span>Password</span>
-                      <input value={adminPassword} onChange={(event) => setAdminPassword(event.target.value)} type="password" />
-                    </label>
-                    <button className="menu-action" disabled={adminBusy} onClick={() => void handleAdminLogin()} type="button">
-                      {adminBusy ? 'Checking...' : 'Login as Admin'}
-                    </button>
-                    {adminError ? <p className="admin-error">{adminError}</p> : null}
-                  </>
-                ) : (
-                  <>
-                    <div className="sidebar-stats">
-                      <div className="sidebar-stat-row"><span>Visits</span><strong className="status-active">{adminStats?.visitors.totalVisits ?? '--'}</strong></div>
-                      <div className="sidebar-stat-row"><span>Unique</span><strong className="status-good">{adminStats?.visitors.uniqueVisitors ?? '--'}</strong></div>
-                      <div className="sidebar-stat-row"><span>Players</span><strong className="status-active">{adminStats?.players.total ?? '--'}</strong></div>
-                      <div className="sidebar-stat-row"><span>Sessions</span><strong className="status-active">{adminStats?.sessions.total ?? '--'}</strong></div>
-                      <div className="sidebar-stat-row"><span>Open sessions</span><strong className="status-idle">{adminStats?.sessions.open ?? '--'}</strong></div>
-                      <div className="sidebar-stat-row"><span>Used sessions</span><strong className="status-idle">{adminStats?.sessions.used ?? '--'}</strong></div>
-                      <div className="sidebar-stat-row"><span>Replays</span><strong className="status-active">{adminStats?.replays.total ?? '--'}</strong></div>
-                      <div className="sidebar-stat-row"><span>Leaderboard</span><strong className="status-good">{adminStats?.leaderboard.total ?? '--'}</strong></div>
-                    </div>
-
-                    <div className="menu-section">
-                      <p className="menu-label">Activity</p>
-                      <div className="sidebar-stats">
-                        {(adminStats?.leaderboard.top ?? []).map((entry, index) => (
-                          <div className="sidebar-stat-row" key={`${entry.forkName}-${index}`}>
-                            <span>{entry.forkName}</span>
-                            <strong className="status-idle">{formatDurationMs(entry.timeMs)}</strong>
-                          </div>
-                        ))}
-                        {(adminStats?.leaderboard.top ?? []).length === 0 ? <span className="status-idle">No leaderboard activity yet</span> : null}
-                      </div>
-                    </div>
-
-                    <button className="menu-action" disabled={adminBusy} onClick={() => void refreshAdminStats()} type="button">
-                      {adminBusy ? 'Refreshing...' : 'Refresh Stats'}
-                    </button>
-                    <button
-                      className="menu-action menu-action-secondary"
-                      onClick={() => {
-                        setAdminLoggedIn(false);
-                        setAdminPassword('');
-                        setAdminStats(null);
-                        setAdminError(null);
-                      }}
-                      type="button"
-                    >
-                      Logout
-                    </button>
-                    {adminError ? <p className="admin-error">{adminError}</p> : null}
-                  </>
-                )}
               </div>
             </aside>
           ) : null}

@@ -171,7 +171,7 @@ export interface VisitorStatsResponse {
   counted: boolean;
 }
 
-export interface AdminStatsResponse {
+export interface StatsResponse {
   visitors: {
     totalVisits: number;
     uniqueVisitors: number;
