@@ -473,12 +473,19 @@ body {
 
 .sidebar-step {
   justify-content: flex-start;
-  align-items: flex-start;
+  align-items: center;
 }
 
 .sidebar-step-icon {
   width: 14px;
   flex: 0 0 14px;
+}
+
+.sidebar-step span:last-child {
+  flex: 1;
+  min-width: 0;
+  line-height: 1.35;
+  word-break: break-word;
 }
 
 .sidebar-step.is-done {
