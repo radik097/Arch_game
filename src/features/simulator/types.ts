@@ -76,6 +76,7 @@ export interface InstallState {
   selectedDisk: string | null;
   rootMounted: boolean;
   bootMounted: boolean;
+  packagesUpdated: boolean;
   packagesInstalled: boolean;
   fstabGenerated: boolean;
   inChroot: boolean;
@@ -97,6 +98,12 @@ export interface RuntimeContext {
   mode: 'server' | 'browser';
   browserProfile: string | null;
   currentDirectory: string;
+  fdiskSession: {
+    active: boolean;
+    device: string | null;
+    hasGpt: boolean;
+    draftPartitions: PartitionState[];
+  };
 }
 
 export interface PseudoFilesystemState {
