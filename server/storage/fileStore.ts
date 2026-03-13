@@ -1,7 +1,15 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import type { LeaderboardEntry, PlayerRecord, ReplaySubmission, SessionRecord, VisitorRegistrationRequest, VisitorStatsResponse } from '../../src/shared/replay.js';
+import type {
+  AdminStatsResponse,
+  LeaderboardEntry,
+  PlayerRecord,
+  ReplaySubmission,
+  SessionRecord,
+  VisitorRegistrationRequest,
+  VisitorStatsResponse,
+} from '../../src/shared/replay.js';
 import { applyVisitorEvent, createEmptyVisitorStore, createVisitorStatsResponse, type VisitorStore } from '../telemetry.js';
 
 const dataRoot = join(process.cwd(), 'data');
@@ -91,6 +99,47 @@ export async function readVisitorStats(): Promise<VisitorStatsResponse> {
   return createVisitorStatsResponse(current);
 }
 
+export async function readAdminStats(): Promise<AdminStatsResponse> {
+  const visitors = await readJson<VisitorStore>(visitorsPath, createEmptyVisitorStore());
+  const sessions = await readJson<SessionRecord[]>(sessionsPath, []);
+  const players = await readJson<PlayerRecord[]>(playersPath, []);
+  const leaderboard = await readJson<LeaderboardEntry[]>(leaderboardPath, []);
+  const replayCount = await readReplayCount();
+
+  return {
+    visitors: {
+      totalVisits: visitors.totalVisits,
+      uniqueVisitors: visitors.uniqueVisitors,
+      lastVisitAt: visitors.lastVisitAt,
+    },
+    sessions: {
+      total: sessions.length,
+      open: sessions.filter((session) => session.usedAtMs === null).length,
+      used: sessions.filter((session) => session.usedAtMs !== null).length,
+    },
+    replays: {
+      total: replayCount,
+    },
+    players: {
+      total: players.length,
+    },
+    leaderboard: {
+      total: leaderboard.length,
+      top: leaderboard
+        .slice()
+        .sort((left, right) => left.timeMs - right.timeMs)
+        .slice(0, 5)
+        .map((entry) => ({
+          forkName: entry.forkName,
+          difficulty: entry.difficulty,
+          timeMs: entry.timeMs,
+          createdAt: entry.createdAt,
+        })),
+    },
+    generatedAt: new Date().toISOString(),
+  };
+}
+
 async function readJson<T>(path: string, fallback: T): Promise<T> {
   try {
     const raw = await readFile(path, 'utf8');
@@ -103,4 +152,13 @@ async function readJson<T>(path: string, fallback: T): Promise<T> {
 async function writeJson(path: string, value: unknown): Promise<void> {
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, JSON.stringify(value, null, 2), 'utf8');
+}
+
+async function readReplayCount(): Promise<number> {
+  try {
+    const entries = await readdir(replayDir, { withFileTypes: true });
+    return entries.filter((entry) => entry.isFile() && entry.name.endsWith('.json')).length;
+  } catch {
+    return 0;
+  }
 }

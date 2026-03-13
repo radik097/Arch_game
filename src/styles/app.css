@@ -259,9 +259,10 @@ body {
   inset: 0;
   z-index: 8;
   display: grid;
-  place-items: center;
+  place-items: start end;
   padding: 16px;
-  background: rgba(3, 6, 9, 0.8);
+  background: transparent;
+  pointer-events: none;
 }
 
 .welcome-overlay {
@@ -297,12 +298,15 @@ body {
 }
 
 .tutorial-card {
-  width: min(560px, 100%);
+  width: min(820px, 96vw);
   display: grid;
   gap: 10px;
   padding: 18px;
   border: 1px solid var(--menu-border);
   background: var(--menu-bg);
+  max-height: min(78vh, 760px);
+  overflow-y: auto;
+  pointer-events: auto;
 }
 
 .tutorial-card h2 {
@@ -357,6 +361,25 @@ body {
   background: rgba(0, 0, 0, 0.2);
   color: var(--text-main);
   font: inherit;
+}
+
+.menu-field input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--menu-button-border);
+  background: rgba(0, 0, 0, 0.2);
+  color: var(--text-main);
+  font: inherit;
+}
+
+.admin-panel {
+  right: 346px;
+}
+
+.admin-error {
+  margin: 0;
+  color: #ff9f9f;
+  font-size: 0.76rem;
 }
 
 .menu-toggle-row {
@@ -485,7 +508,9 @@ body {
   flex: 1;
   min-width: 0;
   line-height: 1.35;
-  word-break: break-word;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .sidebar-step.is-done {
@@ -605,5 +630,10 @@ body {
   .terminal-menu-panel {
     top: 96px;
     right: 8px;
+  }
+
+  .admin-panel {
+    right: 8px;
+    top: 296px;
   }
 }

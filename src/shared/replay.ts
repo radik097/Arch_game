@@ -170,3 +170,32 @@ export interface VisitorStatsResponse {
   lastVisitAt: string | null;
   counted: boolean;
 }
+
+export interface AdminStatsResponse {
+  visitors: {
+    totalVisits: number;
+    uniqueVisitors: number;
+    lastVisitAt: string | null;
+  };
+  sessions: {
+    total: number;
+    open: number;
+    used: number;
+  };
+  replays: {
+    total: number;
+  };
+  players: {
+    total: number;
+  };
+  leaderboard: {
+    total: number;
+    top: Array<{
+      forkName: string;
+      difficulty: Difficulty;
+      timeMs: number;
+      createdAt: string;
+    }>;
+  };
+  generatedAt: string;
+}
