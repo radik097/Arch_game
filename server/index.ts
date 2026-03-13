@@ -34,11 +34,11 @@ const startSessionAttempts = new Map<string, number[]>();
 const server = createServer(async (request, response) => {
   try {
     if (!request.url) {
-      return sendJson(response, 400, { error: 'Missing URL.' });
+      return sendJson(response, 400, { error: 'Missing URL.' }, request);
     }
 
     if (request.method === 'OPTIONS') {
-      return sendNoContent(response, 204);
+      return sendNoContent(response, 204, request);
     }
 
     if (request.method === 'POST' && request.url === '/api/visits') {
@@ -47,26 +47,26 @@ const server = createServer(async (request, response) => {
       void sendTelegramVisitMessage(body, stats).catch((error) => {
         console.error('Telegram visitor notification failed:', error);
       });
-      return sendJson(response, 200, stats);
+      return sendJson(response, 200, stats, request);
     }
 
     if (request.method === 'GET' && request.url === '/api/visits') {
       const stats = await readVisitorStats();
-      return sendJson(response, 200, stats);
+      return sendJson(response, 200, stats, request);
     }
 
     if (request.method === 'GET' && request.url === '/api/admin/stats') {
       if (!isAdminAuthorized(request)) {
-        return sendJson(response, 401, { error: 'Unauthorized admin access.' });
+        return sendJson(response, 401, { error: 'Unauthorized admin access.' }, request);
       }
       const stats = await readAdminStats();
-      return sendJson(response, 200, stats);
+      return sendJson(response, 200, stats, request);
     }
 
     if (request.method === 'POST' && request.url === '/api/register-player') {
       const body = await readJsonBody<PlayerRegistrationRequest>(request);
       const payload = await registerPlayer(body);
-      return sendJson(response, 200, payload);
+      return sendJson(response, 200, payload, request);
     }
 
     if (request.method === 'POST' && (request.url === '/api/start-session' || request.url === '/api/session/start')) {
@@ -91,7 +91,7 @@ const server = createServer(async (request, response) => {
         verificationMode: 'official',
       };
 
-      return sendJson(response, 200, payload);
+      return sendJson(response, 200, payload, request);
     }
 
     if (request.method === 'POST' && (request.url === '/api/submit-replay' || request.url === '/api/replay/submit')) {
@@ -104,7 +104,7 @@ const server = createServer(async (request, response) => {
             code: 'SESSION_NOT_FOUND',
             message: 'Server session was not found for this replay.',
           },
-        });
+        }, request);
       }
 
       if (session.usedAtMs !== null) {
@@ -114,7 +114,7 @@ const server = createServer(async (request, response) => {
             code: 'SESSION_USED',
             message: 'This session already submitted a replay and is closed.',
           },
-        });
+        }, request);
       }
 
       const usedAtMs = Date.now();
@@ -142,10 +142,10 @@ const server = createServer(async (request, response) => {
         return sendJson(response, 200, {
           ...result,
           leaderboardEntry,
-        });
+        }, request);
       }
 
-      return sendJson(response, 422, result);
+      return sendJson(response, 422, result, request);
     }
 
     if (request.method === 'GET' && request.url.startsWith('/api/leaderboard')) {
@@ -153,13 +153,13 @@ const server = createServer(async (request, response) => {
       const difficulty = url.searchParams.get('difficulty');
       const leaderboard = await readLeaderboard();
       const filtered = difficulty ? leaderboard.filter((entry) => entry.difficulty === difficulty) : leaderboard;
-      return sendJson(response, 200, filtered);
+      return sendJson(response, 200, filtered, request);
     }
 
-    return sendJson(response, 404, { error: 'Not found.' });
+    return sendJson(response, 404, { error: 'Not found.' }, request);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown server error.';
-    return sendJson(response, 500, { error: message });
+    return sendJson(response, 500, { error: message }, request);
   }
 });
 
@@ -200,25 +200,40 @@ function assertRateLimit(rateKey: string): void {
   startSessionAttempts.set(rateKey, recent);
 }
 
-function sendJson(response: import('node:http').ServerResponse, statusCode: number, body: unknown): void {
+function sendJson(
+  response: import('node:http').ServerResponse,
+  statusCode: number,
+  body: unknown,
+  request?: import('node:http').IncomingMessage,
+): void {
   response.writeHead(statusCode, {
-    ...createCorsHeaders(),
+    ...createCorsHeaders(request),
     'Content-Type': 'application/json; charset=utf-8',
     'Cache-Control': 'no-store',
   });
   response.end(JSON.stringify(body));
 }
 
-function sendNoContent(response: import('node:http').ServerResponse, statusCode: number): void {
+function sendNoContent(
+  response: import('node:http').ServerResponse,
+  statusCode: number,
+  request?: import('node:http').IncomingMessage,
+): void {
   response.writeHead(statusCode, {
-    ...createCorsHeaders(),
+    ...createCorsHeaders(request),
     'Cache-Control': 'no-store',
   });
   response.end();
 }
 
-function createCorsHeaders(): Record<string, string> {
-  const origin = process.env.CORS_ALLOW_ORIGIN?.trim() || '*';
+function createCorsHeaders(request?: import('node:http').IncomingMessage): Record<string, string> {
+  const requestOrigin = request?.headers.origin;
+  const configured = process.env.CORS_ALLOW_ORIGIN?.trim();
+
+  const origin = configured === 'origin'
+    ? requestOrigin || '*'
+    : configured || requestOrigin || '*';
+
   return {
     'Access-Control-Allow-Origin': origin,
     'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',

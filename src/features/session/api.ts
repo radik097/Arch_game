@@ -9,7 +9,13 @@ import type {
   VisitorStatsResponse,
 } from '../../shared/replay';
 
-const API_BASE_URL = (import.meta.env.VITE_ARCH_TRAINER_API_URL as string | undefined)?.trim() || 'http://localhost:8787';
+const EXPLICIT_API_BASE_URL = (import.meta.env.VITE_ARCH_TRAINER_API_URL as string | undefined)?.trim() || '';
+const IS_LOCAL_HOST = typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname);
+const API_BASE_URL = EXPLICIT_API_BASE_URL || (IS_LOCAL_HOST ? 'http://localhost:8787' : '');
+
+function isApiConfigured(): boolean {
+  return API_BASE_URL.length > 0;
+}
 
 export async function startOfficialSession(payload: SessionStartRequest): Promise<SessionStartResponse> {
   return requestJson<SessionStartResponse>('/api/start-session', payload);
@@ -20,6 +26,10 @@ export async function submitOfficialReplay(payload: ReplaySubmission): Promise<R
 }
 
 export async function fetchLeaderboard(difficulty?: string): Promise<LeaderboardEntry[]> {
+  if (!isApiConfigured()) {
+    return [];
+  }
+
   const suffix = difficulty ? `?difficulty=${encodeURIComponent(difficulty)}` : '';
   const response = await fetch(`${API_BASE_URL}/api/leaderboard${suffix}`);
   if (!response.ok) {
@@ -30,10 +40,28 @@ export async function fetchLeaderboard(difficulty?: string): Promise<Leaderboard
 }
 
 export async function registerVisit(payload: VisitorRegistrationRequest): Promise<VisitorStatsResponse> {
+  if (!isApiConfigured()) {
+    return {
+      totalVisits: 0,
+      uniqueVisitors: 0,
+      lastVisitAt: null,
+      counted: false,
+    };
+  }
+
   return requestJson<VisitorStatsResponse>('/api/visits', payload);
 }
 
 export async function fetchVisitorStats(): Promise<VisitorStatsResponse> {
+  if (!isApiConfigured()) {
+    return {
+      totalVisits: 0,
+      uniqueVisitors: 0,
+      lastVisitAt: null,
+      counted: false,
+    };
+  }
+
   const response = await fetch(`${API_BASE_URL}/api/visits`);
   if (!response.ok) {
     throw new Error(`Visitor stats request failed with status ${response.status}`);
@@ -43,6 +71,10 @@ export async function fetchVisitorStats(): Promise<VisitorStatsResponse> {
 }
 
 export async function fetchAdminStats(user: string, password: string): Promise<AdminStatsResponse> {
+  if (!isApiConfigured()) {
+    throw new Error('Admin API is not configured for this deployment. Set VITE_ARCH_TRAINER_API_URL.');
+  }
+
   const response = await fetch(`${API_BASE_URL}/api/admin/stats`, {
     headers: {
       'x-admin-user': user,
@@ -58,6 +90,10 @@ export async function fetchAdminStats(user: string, password: string): Promise<A
 }
 
 async function requestJson<T>(path: string, body: unknown): Promise<T> {
+  if (!isApiConfigured()) {
+    throw new Error('API is not configured for this deployment. Set VITE_ARCH_TRAINER_API_URL.');
+  }
+
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method: 'POST',
     headers: {
