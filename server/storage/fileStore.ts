@@ -1,12 +1,14 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import type { LeaderboardEntry, PlayerRecord, ReplaySubmission, SessionRecord } from '../../src/shared/replay.js';
+import type { LeaderboardEntry, PlayerRecord, ReplaySubmission, SessionRecord, VisitorRegistrationRequest, VisitorStatsResponse } from '../../src/shared/replay.js';
+import { applyVisitorEvent, createEmptyVisitorStore, createVisitorStatsResponse, type VisitorStore } from '../telemetry.js';
 
 const dataRoot = join(process.cwd(), 'data');
 const sessionsPath = join(dataRoot, 'sessions.json');
 const leaderboardPath = join(dataRoot, 'leaderboard.json');
 const playersPath = join(dataRoot, 'players.json');
+const visitorsPath = join(dataRoot, 'visitors.json');
 const replayDir = join(dataRoot, 'replays');
 
 export async function createSession(record: SessionRecord): Promise<void> {
@@ -75,6 +77,18 @@ export async function insertLeaderboardEntry(entry: Omit<LeaderboardEntry, 'id' 
 
 export async function readLeaderboard(): Promise<LeaderboardEntry[]> {
   return readJson<LeaderboardEntry[]>(leaderboardPath, []);
+}
+
+export async function registerVisit(payload: VisitorRegistrationRequest): Promise<VisitorStatsResponse> {
+  const current = await readJson<VisitorStore>(visitorsPath, createEmptyVisitorStore());
+  const { store, stats } = applyVisitorEvent(current, payload, new Date().toISOString());
+  await writeJson(visitorsPath, store);
+  return stats;
+}
+
+export async function readVisitorStats(): Promise<VisitorStatsResponse> {
+  const current = await readJson<VisitorStore>(visitorsPath, createEmptyVisitorStore());
+  return createVisitorStatsResponse(current);
 }
 
 async function readJson<T>(path: string, fallback: T): Promise<T> {

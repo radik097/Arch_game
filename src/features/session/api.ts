@@ -4,6 +4,8 @@ import type {
   ReplayValidationResult,
   SessionStartRequest,
   SessionStartResponse,
+  VisitorRegistrationRequest,
+  VisitorStatsResponse,
 } from '../../shared/replay';
 
 const API_BASE_URL = (import.meta.env.VITE_ARCH_TRAINER_API_URL as string | undefined)?.trim() || 'http://localhost:8787';
@@ -24,6 +26,19 @@ export async function fetchLeaderboard(difficulty?: string): Promise<Leaderboard
   }
 
   return (await response.json()) as LeaderboardEntry[];
+}
+
+export async function registerVisit(payload: VisitorRegistrationRequest): Promise<VisitorStatsResponse> {
+  return requestJson<VisitorStatsResponse>('/api/visits', payload);
+}
+
+export async function fetchVisitorStats(): Promise<VisitorStatsResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/visits`);
+  if (!response.ok) {
+    throw new Error(`Visitor stats request failed with status ${response.status}`);
+  }
+
+  return (await response.json()) as VisitorStatsResponse;
 }
 
 async function requestJson<T>(path: string, body: unknown): Promise<T> {
