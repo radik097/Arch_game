@@ -1,0 +1,33 @@
+{
+  "name": "arch-trainer",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "prepare:client": "node scripts/generate-build-proof.mjs",
+    "dev": "npm run prepare:client && vite",
+    "dev:server": "tsx watch server/index.ts",
+    "build": "npm run build:client && npm run build:server",
+    "build:client": "npm run prepare:client && tsc && vite build",
+    "build:server": "tsc -p tsconfig.server.json",
+    "start:server": "tsx server/index.ts",
+    "preview": "vite preview",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/xterm": "^6.0.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react-swc": "^3.7.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.10",
+    "vitest": "^2.1.4"
+  }
+}

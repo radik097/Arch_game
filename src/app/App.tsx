@@ -1,0 +1,867 @@
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { deriveObjectives } from '../features/simulator/objectives';
+import { completeInput, createInitialState, executeCommand, getPromptLabel } from '../features/simulator/engine';
+import type { Difficulty, GameState, TerminalLine } from '../features/simulator/types';
+import { fetchLeaderboard, startOfficialSession, submitOfficialReplay } from '../features/session/api';
+import { createVerificationBundle, getLocalForkConfig, getVerificationSummary } from '../features/session/buildIdentity';
+import { XtermTerminal } from '../features/terminal/XtermTerminal';
+import type { LeaderboardEntry, ReplayCommand, ReplaySubmission, SessionStartResponse } from '../shared/replay';
+
+type TerminalMode = 'shell' | 'game';
+type TerminalThemeId = 'emerald' | 'amber' | 'ice';
+
+interface UiSettings {
+  preferredDifficulty: Difficulty;
+  compactBoot: boolean;
+  theme: TerminalThemeId;
+}
+
+interface RunSummary {
+  mode: 'idle' | 'local' | 'official';
+  submissionState: 'idle' | 'submitting' | 'accepted' | 'rejected';
+  submissionMessage: string | null;
+  officialTimeMs: number | null;
+}
+
+interface LocalRun {
+  mode: 'local';
+  commands: ReplayCommand[];
+  submitted: boolean;
+}
+
+interface OfficialRun {
+  mode: 'official';
+  session: SessionStartResponse;
+  commands: ReplayCommand[];
+  lastHash: string;
+  submitted: boolean;
+}
+
+type ActiveRun = LocalRun | OfficialRun;
+
+const CLIENT_VERSION = '0.1.0';
+const CONTROL_USER = 'root';
+const CONTROL_HOST = 'archiso';
+const SETTINGS_KEY = 'arch-trainer-terminal-settings-v1';
+let lineCounter = 0;
+
+export function App() {
+  const [uiSettings, setUiSettings] = useState<UiSettings>(() => loadUiSettings());
+  const [mode, setMode] = useState<TerminalMode>('shell');
+  const [state, setState] = useState<GameState>(() => createInitialState('beginner'));
+  const [terminalLines, setTerminalLines] = useState<TerminalLine[]>(() => createBootLines(loadUiSettings().compactBoot));
+  const [now, setNow] = useState(() => Date.now());
+  const [isBusy, setIsBusy] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [showHint, setShowHint] = useState(false);
+  const [runSummary, setRunSummary] = useState<RunSummary>({
+    mode: 'idle',
+    submissionState: 'idle',
+    submissionMessage: null,
+    officialTimeMs: null,
+  });
+  const activeRunRef = useRef<ActiveRun | null>(null);
+  const appendedHistoryRef = useRef(0);
+
+  const verificationBundle = createVerificationBundle();
+  const verificationSummary = getVerificationSummary();
+  const forkConfig = getLocalForkConfig();
+  const browserProfile = useMemo(() => detectBrowserProfile(), []);
+  const objectives = deriveObjectives(state);
+  const currentObjective = objectives.find((objective) => objective.id === state.currentObjective) ?? objectives[0];
+  const completedObjectives = objectives.filter((objective) => objective.completed).length;
+  const progress = objectives.length === 0 ? 0 : (completedObjectives / objectives.length) * 100;
+  const activeRun = activeRunRef.current;
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(uiSettings));
+  }, [uiSettings]);
+
+  useEffect(() => {
+    const nextLines = state.history.slice(appendedHistoryRef.current);
+    if (nextLines.length === 0) {
+      return;
+    }
+
+    setTerminalLines((current) => [...current, ...nextLines]);
+    appendedHistoryRef.current = state.history.length;
+  }, [state.history]);
+
+  useEffect(() => {
+    const activeRun = activeRunRef.current;
+    if (mode !== 'game' || !state.completed || !activeRun || activeRun.submitted) {
+      return;
+    }
+
+    activeRun.submitted = true;
+    const objectives = deriveObjectives(state);
+    const currentObjective = objectives.find((objective) => objective.id === state.currentObjective) ?? objectives[0];
+
+    if (activeRun.mode === 'local') {
+      appendLines([
+        createLine('success', 'installer session completed in local sandbox mode'),
+        createLine('info', `last_objective=${currentObjective?.title ?? 'completed'}`),
+        createLine('info', 'no official replay submission was attempted'),
+      ], setTerminalLines);
+      setRunSummary({
+        mode: 'local',
+        submissionState: 'accepted',
+        submissionMessage: 'Local sandbox run completed.',
+        officialTimeMs: null,
+      });
+      appendLines([createLine('info', `selected_mode=${state.difficulty}`)], setTerminalLines);
+      setMode('shell');
+      return;
+    }
+
+    setIsBusy(true);
+    setRunSummary((current) => ({
+      ...current,
+      submissionState: 'submitting',
+      submissionMessage: 'Submitting replay to official validator...',
+    }));
+    appendLines([createLine('info', 'official-validator: replay complete, submitting hash chain...')], setTerminalLines);
+
+    const replay: ReplaySubmission = {
+      version: CLIENT_VERSION,
+      difficulty: state.difficulty,
+      sessionId: activeRun.session.sessionId,
+      seed: activeRun.session.seed,
+      playerId: activeRun.session.playerId,
+      githubRepo: activeRun.session.githubRepo,
+      buildHash: activeRun.session.buildHash,
+      buildId: activeRun.session.buildId,
+      commands: activeRun.commands,
+    };
+
+    void submitOfficialReplay(replay)
+      .then((result) => {
+        setRunSummary({
+          mode: 'official',
+          submissionState: result.accepted ? 'accepted' : 'rejected',
+          submissionMessage: result.accepted ? `install_hash=${result.installHash}` : result.issue?.message ?? 'Replay rejected.',
+          officialTimeMs: result.officialTimeMs,
+        });
+        appendLines(
+          [
+            createLine(result.accepted ? 'success' : 'error', `official-validator: ${result.accepted ? 'accepted' : 'rejected'}`),
+            createLine('info', `official_time=${formatDurationMs(result.officialTimeMs)}`),
+            createLine('info', result.accepted ? `install_hash=${result.installHash}` : result.issue?.message ?? 'Replay rejected.'),
+          ],
+          setTerminalLines,
+        );
+        setIsBusy(false);
+        setMode('shell');
+      })
+      .catch((error) => {
+        setRunSummary({
+          mode: 'official',
+          submissionState: 'rejected',
+          submissionMessage: error instanceof Error ? error.message : 'Replay submission failed.',
+          officialTimeMs: null,
+        });
+        appendLines([createLine('error', error instanceof Error ? error.message : 'Replay submission failed.')], setTerminalLines);
+        setIsBusy(false);
+        setMode('shell');
+      });
+  }, [mode, state.completed, state, setTerminalLines]);
+
+  async function startRun(difficulty: Difficulty) {
+    setIsBusy(true);
+    setMenuOpen(false);
+    let officialSession: SessionStartResponse | null = null;
+
+    if (verificationBundle) {
+      try {
+        officialSession = await startOfficialSession({
+          difficulty,
+          version: CLIENT_VERSION,
+          verification: verificationBundle,
+        });
+      } catch {
+        officialSession = null;
+      }
+    }
+
+    appendLines(
+      [
+        createLine('system', `sessionctl: allocating ${difficulty} installer`),
+        createLine('info', officialSession ? `session=${officialSession.sessionId} verification=official` : 'verification=local-sandbox'),
+      ],
+      setTerminalLines,
+    );
+
+    const nextState = createInitialState(difficulty, {
+      seed: officialSession?.seed ?? 'local-offline-seed',
+      startedAtMs: officialSession?.startTimeMs ?? Date.now(),
+      profile: officialSession?.profile ?? 'local-sandbox-profile',
+    });
+
+    nextState.runtime.browserProfile = browserProfile;
+    nextState.history = [
+      ...nextState.history,
+      createTerminalInfo(
+        officialSession
+          ? `official session=${officialSession.sessionId} fork=${officialSession.forkName}`
+          : 'local sandbox mode: verification unavailable or rejected',
+      ),
+      createTerminalInfo(`browser profile: ${browserProfile}`),
+    ];
+
+    activeRunRef.current = officialSession
+      ? {
+          mode: 'official',
+          session: officialSession,
+          commands: [],
+          lastHash: await sha256Hex(`${officialSession.sessionId}:${officialSession.seed}:${officialSession.buildHash}`),
+          submitted: false,
+        }
+      : {
+          mode: 'local',
+          commands: [],
+          submitted: false,
+        };
+
+    appendedHistoryRef.current = 0;
+    setState(nextState);
+    setRunSummary({
+      mode: officialSession ? 'official' : 'local',
+      submissionState: 'idle',
+      submissionMessage: officialSession ? 'Official replay armed.' : 'Local mode only. No leaderboard submission.',
+      officialTimeMs: null,
+    });
+    setMode('game');
+    setIsBusy(false);
+  }
+
+  async function handleShellCommand(command: string) {
+    const normalized = command.trim().toLowerCase();
+    if (!normalized) {
+      return;
+    }
+
+    if (normalized === 'help' || normalized === 'sessionctl help') {
+      appendLines(createHelpLines(), setTerminalLines);
+      return;
+    }
+
+    if (normalized === 'start') {
+      await startRun(uiSettings.preferredDifficulty);
+      return;
+    }
+
+    if (normalized.startsWith('start ')) {
+      const difficulty = parseDifficultyToken(normalized.split(/\s+/)[1]);
+      if (!difficulty) {
+        appendLines([createLine('error', 'usage: start <beginner|experienced|expert|god>')], setTerminalLines);
+        return;
+      }
+
+      await startRun(difficulty);
+      return;
+    }
+
+    if (normalized === 'clear') {
+      setTerminalLines([]);
+      return;
+    }
+
+    if (normalized === 'logout' || normalized === 'exit') {
+      appendLines([createLine('system', 'logout')], setTerminalLines);
+      return;
+    }
+
+    if (normalized === 'whoami') {
+      appendLines([createLine('output', CONTROL_USER)], setTerminalLines);
+      return;
+    }
+
+    if (normalized === 'pwd') {
+      appendLines([createLine('output', '/root')], setTerminalLines);
+      return;
+    }
+
+    if (normalized === 'ls') {
+      appendLines([createLine('output', 'README.txt  sessionctl  runbook.md')], setTerminalLines);
+      return;
+    }
+
+    if (normalized === 'cat /etc/motd') {
+      appendLines(createMotdLines(verificationSummary, forkConfig.github_repo || 'repo=unset'), setTerminalLines);
+      return;
+    }
+
+    if (normalized === 'uname -a') {
+      appendLines(
+        [
+          createLine(
+            'output',
+            'Linux arch-trainer 6.8.9-arch1-1 #1 SMP PREEMPT_DYNAMIC x86_64 GNU/Linux',
+          ),
+        ],
+        setTerminalLines,
+      );
+      return;
+    }
+
+    if (normalized === 'hostnamectl') {
+      appendLines(
+        [
+          createLine('output', ` Static hostname: ${CONTROL_HOST}`),
+          createLine('output', '       Machine ID: archiso-training-sandbox'),
+          createLine('output', '          Kernel: Linux 6.8.9-arch1-1'),
+          createLine('output', '    Architecture: x86-64'),
+        ],
+        setTerminalLines,
+      );
+      return;
+    }
+
+    if (normalized === 'sessionctl about') {
+      appendLines(
+        [
+          createLine('system', 'sessionctl about'),
+          createLine('output', 'seed -> hardware generator -> event engine -> replay validator'),
+          createLine('output', 'multiple disks, pseudo /proc, pseudo /sys/class/net, deterministic failure events'),
+          createLine('output', 'official leaderboard accepts only verified fork builds with server replay validation'),
+        ],
+        setTerminalLines,
+      );
+      return;
+    }
+
+    if (normalized === 'sessionctl status') {
+      appendLines(
+        [
+          createLine('system', 'sessionctl status'),
+          createLine('output', `verification=${verificationSummary}`),
+          createLine('output', `repo=${forkConfig.github_repo || 'unset'}`),
+          createLine('output', `last_run_mode=${runSummary.mode}`),
+          createLine('output', `last_submission=${runSummary.submissionState}`),
+          createLine('output', `last_message=${runSummary.submissionMessage ?? 'none'}`),
+        ],
+        setTerminalLines,
+      );
+      return;
+    }
+
+    if (normalized.startsWith('sessionctl leaderboard')) {
+      const parts = normalized.split(/\s+/);
+      const difficulty = parseDifficultyToken(parts[2]);
+      await loadLeaderboard(difficulty);
+      return;
+    }
+
+    if (normalized.startsWith('sessionctl start')) {
+      const parts = normalized.split(/\s+/);
+      const difficulty = parseDifficultyToken(parts[2]);
+      if (!difficulty) {
+        appendLines([createLine('error', 'usage: sessionctl start <beginner|experienced|expert|god>')], setTerminalLines);
+        return;
+      }
+
+      await startRun(difficulty);
+      return;
+    }
+
+    if (!activeRunRef.current) {
+      activeRunRef.current = {
+        mode: 'local',
+        commands: [],
+        submitted: false,
+      };
+      setRunSummary({
+        mode: 'local',
+        submissionState: 'idle',
+        submissionMessage: 'Local sandbox run active.',
+        officialTimeMs: null,
+      });
+    }
+
+    setTerminalLines((current) => current.slice(0, -1));
+    setMode('game');
+    await handleGameCommand(command);
+  }
+
+  async function handleGameCommand(command: string) {
+    const normalized = command.trim().toLowerCase();
+
+    if (normalized === 'exit' || normalized === 'logout') {
+      if (activeRunRef.current) {
+        activeRunRef.current.submitted = true;
+      }
+      appendLines([createLine('system', 'installer session aborted, returning to control shell')], setTerminalLines);
+      setMode('shell');
+      return;
+    }
+
+    if (normalized === 'clear') {
+      setTerminalLines([]);
+      return;
+    }
+
+    const activeRun = activeRunRef.current;
+    if (activeRun?.mode === 'official') {
+      const timestamp = Date.now();
+      const tGameMs = Math.max(0, timestamp - activeRun.session.startTimeMs);
+      const hash = await sha256Hex(`${activeRun.lastHash}\n${command}\n${Math.round(tGameMs)}\n${timestamp}\n${activeRun.session.sessionKey}`);
+      activeRun.commands.push({ cmd: command, tGameMs: Math.round(tGameMs), tUnixMs: timestamp, hash });
+      activeRun.lastHash = hash;
+    }
+
+    if (activeRun?.mode === 'local') {
+      activeRun.commands.push({
+        cmd: command,
+        tGameMs: Math.max(0, Date.now() - state.startedAt),
+        tUnixMs: Date.now(),
+        hash: 'local-only',
+      });
+    }
+
+    setState((current) => executeCommand(current, command));
+  }
+
+  async function loadLeaderboard(difficulty?: Difficulty) {
+    setIsBusy(true);
+    appendLines([createLine('info', `sessionctl: requesting leaderboard${difficulty ? ` difficulty=${difficulty}` : ''}`)], setTerminalLines);
+    try {
+      const rows = await fetchLeaderboard(difficulty);
+      appendLines(createLeaderboardLines(rows, difficulty), setTerminalLines);
+    } catch {
+      appendLines([createLine('error', 'leaderboard unavailable')], setTerminalLines);
+    } finally {
+      setIsBusy(false);
+    }
+  }
+
+  async function handleTerminalSubmit(command: string) {
+    if (isBusy) {
+      return;
+    }
+
+    if (mode === 'game') {
+      await handleGameCommand(command);
+      return;
+    }
+
+    appendLines([createLine('command', `${getPromptLabel(state)} ${command}`)], setTerminalLines);
+    await handleShellCommand(command);
+  }
+
+  const prompt = `${getPromptLabel(state)} `;
+  const elapsedMs = mode === 'game' ? Math.max(0, now - state.startedAt) : runSummary.officialTimeMs;
+  const timerLabel = mode === 'game' ? 'RUN' : runSummary.officialTimeMs !== null ? 'LAST' : 'IDLE';
+  const hintText = currentObjective
+    ? `${currentObjective.title}: ${state.lastTeachingNote?.ru ?? state.lastTeachingNote?.en ?? currentObjective.detail}`
+    : null;
+  const replayHashPreview = activeRun?.mode === 'official' ? activeRun.lastHash.slice(0, 8) : activeRun?.commands.at(-1)?.hash.slice(0, 8) ?? 'local';
+  const themeOptions: Array<{ id: TerminalThemeId; label: string }> = [
+    { id: 'emerald', label: 'Emerald CRT' },
+    { id: 'amber', label: 'Amber Phosphor' },
+    { id: 'ice', label: 'Ice Console' },
+  ];
+
+  return (
+    <main className={`app-shell theme-${uiSettings.theme}`}>
+      <section className="terminal-stage bash-stage">
+        <div className="terminal-frame">
+          <header className="terminal-topbar">
+            <div className="topbar-brand">
+              <span className="topbar-title">ARCH TRAINER</span>
+              <span className="topbar-divider">|</span>
+              <span className={`topbar-difficulty difficulty-${state.difficulty}`}>{state.difficulty.toUpperCase()}</span>
+              <span className="topbar-divider">|</span>
+              <span className="topbar-replay">#{replayHashPreview}</span>
+            </div>
+
+            <div className="topbar-center">
+              <div className="terminal-timer" aria-live="polite">
+                <span className="terminal-timer-label">{timerLabel}</span>
+                <strong className="terminal-timer-value">{formatDurationMs(elapsedMs)}</strong>
+              </div>
+              <div className="topbar-progress">
+                <span>{`${completedObjectives}/${objectives.length}`}</span>
+                <div className="topbar-progress-track">
+                  <div className="topbar-progress-bar" style={{ width: `${progress}%` }} />
+                </div>
+              </div>
+            </div>
+
+            <div className="topbar-actions">
+              <button
+                className="topbar-icon-button"
+                onClick={() => {
+                  void loadLeaderboard();
+                }}
+                type="button"
+              >
+                LB
+              </button>
+              {hintText ? (
+                <button
+                  className={`topbar-icon-button${showHint ? ' is-active' : ''}`}
+                  onClick={() => setShowHint((current) => !current)}
+                  type="button"
+                >
+                  ?
+                </button>
+              ) : null}
+              <button
+                aria-expanded={menuOpen}
+                aria-label="Toggle terminal menu"
+                className={`terminal-menu-toggle${menuOpen ? ' is-open' : ''}`}
+                onClick={() => setMenuOpen((current) => !current)}
+                type="button"
+              >
+                <span />
+                <span />
+                <span />
+              </button>
+            </div>
+          </header>
+
+          {showHint && hintText ? (
+            <div className="terminal-hint-bar">
+              <span className="terminal-hint-label">HINT</span>
+              <span className="terminal-hint-text">{hintText}</span>
+            </div>
+          ) : null}
+
+          {menuOpen ? (
+            <aside className="terminal-menu-panel">
+              <div className="menu-section">
+                <p className="menu-label">Run</p>
+                <label className="menu-field">
+                  <span>Mode</span>
+                  <select
+                    value={uiSettings.preferredDifficulty}
+                    onChange={(event) => {
+                      const difficulty = parseDifficultyToken(event.target.value);
+                      if (!difficulty) {
+                        return;
+                      }
+                      setUiSettings((current) => ({ ...current, preferredDifficulty: difficulty }));
+                    }}
+                  >
+                    <option value="beginner">beginner</option>
+                    <option value="experienced">experienced</option>
+                    <option value="expert">expert</option>
+                    <option value="god">god</option>
+                  </select>
+                </label>
+                <button
+                  className="menu-action"
+                  onClick={() => {
+                    if (mode !== 'shell') {
+                      appendLines([createLine('error', 'login first to start an installer session')], setTerminalLines);
+                      setMenuOpen(false);
+                      return;
+                    }
+                    void startRun(uiSettings.preferredDifficulty);
+                  }}
+                  type="button"
+                >
+                  Start Session
+                </button>
+              </div>
+
+              <div className="menu-section">
+                <p className="menu-label">Theme</p>
+                <div className="theme-grid">
+                  {themeOptions.map((option) => (
+                    <button
+                      key={option.id}
+                      className={`theme-tile${uiSettings.theme === option.id ? ' is-active' : ''}`}
+                      onClick={() => setUiSettings((current) => ({ ...current, theme: option.id }))}
+                      type="button"
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+                          appendLines([createLine('error', 'finish or abort the active installer session first')], setTerminalLines);
+              <div className="menu-section">
+                <p className="menu-label">Settings</p>
+                <label className="menu-toggle-row">
+                  <input
+                    checked={uiSettings.compactBoot}
+                    onChange={(event) => {
+                      const compactBoot = event.target.checked;
+                      setUiSettings((current) => ({ ...current, compactBoot }));
+                    }}
+                    type="checkbox"
+                  />
+                  <span>Compact boot log</span>
+                </label>
+                <button
+                  className="menu-action menu-action-secondary"
+                  onClick={() => {
+                    appendLines(createHelpLines(), setTerminalLines);
+                    setMenuOpen(false);
+                  }}
+                  type="button"
+                >
+                  Print Help
+                </button>
+              </div>
+            </aside>
+          ) : null}
+
+          <div className="terminal-workspace">
+            <div className="terminal-main-pane">
+              <XtermTerminal
+                lines={terminalLines}
+                prompt={prompt}
+                showPrompt={!isBusy}
+                inputMode="text"
+                theme={uiSettings.theme}
+                onTabComplete={(buffer) => completeInput(state, buffer)}
+                onSubmit={handleTerminalSubmit}
+              />
+            </div>
+
+            <aside className="terminal-sidebar">
+              <section className="sidebar-section">
+                <p className="sidebar-heading">Installation Log</p>
+                <div className="sidebar-steps">
+                  {objectives.map((objective) => {
+                    const isCurrent = objective.id === state.currentObjective && !objective.completed;
+                    return (
+                      <div className={`sidebar-step${objective.completed ? ' is-done' : isCurrent ? ' is-current' : ''}`} key={objective.id}>
+                        <span className="sidebar-step-icon">{objective.completed ? '✓' : isCurrent ? '▶' : '○'}</span>
+                        <span>{objective.title}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+
+              <section className="sidebar-section">
+                <p className="sidebar-heading">State</p>
+                <div className="sidebar-stats">
+                  {buildStateRows(state).map((row) => (
+                    <div className="sidebar-stat-row" key={row.label}>
+                      <span>{row.label}</span>
+                      <strong className={row.status}>{row.value}</strong>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              <section className="sidebar-section">
+                <p className="sidebar-heading">Replay</p>
+                <div className="sidebar-stats">
+                  <div className="sidebar-stat-row">
+                    <span>Mode</span>
+                    <strong className="status-active">{runSummary.mode}</strong>
+                  </div>
+                  <div className="sidebar-stat-row">
+                    <span>Commands</span>
+                    <strong className="status-active">{activeRun?.commands.length ?? 0}</strong>
+                  </div>
+                  <div className="sidebar-stat-row">
+                    <span>Hash</span>
+                    <strong className="status-idle">{replayHashPreview}</strong>
+                  </div>
+                  <div className="sidebar-stat-row">
+                    <span>Verdict</span>
+                    <strong className={runSummary.submissionState === 'accepted' ? 'status-good' : runSummary.submissionState === 'rejected' ? 'status-bad' : 'status-idle'}>
+                      {runSummary.submissionState}
+                    </strong>
+                  </div>
+                </div>
+              </section>
+
+              <section className="sidebar-section">
+                <p className="sidebar-heading">Themes</p>
+                <div className="sidebar-theme-list">
+                  {themeOptions.map((option) => (
+                    <button
+                      key={option.id}
+                      className={`sidebar-theme-button${uiSettings.theme === option.id ? ' is-active' : ''}`}
+                      onClick={() => setUiSettings((current) => ({ ...current, theme: option.id }))}
+                      type="button"
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </section>
+            </aside>
+          </div>
+        </div>
+      </section>
+    </main>
+  );
+}
+
+function detectBrowserProfile(): string {
+  const cores = typeof navigator.hardwareConcurrency === 'number' ? navigator.hardwareConcurrency : 'n/a';
+  const memory = 'deviceMemory' in navigator ? String((navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? 'n/a') : 'n/a';
+  return `cpu=${cores} mem=${memory}GiB ua=${navigator.userAgent.slice(0, 36)}`;
+}
+
+function createTerminalInfo(text: string) {
+  lineCounter += 1;
+  return {
+    id: `info-${lineCounter}`,
+    kind: 'info' as const,
+    text,
+  };
+}
+
+function createBootLines(compactBoot: boolean): TerminalLine[] {
+  if (compactBoot) {
+    return [
+      createLine('output', 'Arch Linux 6.8.9-arch1 (tty1)'),
+      createLine('info', 'Live ISO loaded. Root shell is available.'),
+    ];
+  }
+
+  return [
+    createLine('output', 'Arch Linux 6.8.9-arch1 (tty1)'),
+    createLine('system', '[  OK  ] Reached target Multi-User System.'),
+    createLine('system', '[  OK  ] Started arch-trainer-control.service.'),
+    createLine('info', 'This is the Arch Linux installation medium.'),
+    createLine('info', `Arch Trainer ${CLIENT_VERSION} overlay initialized.`),
+    createLine('info', 'Type help for trainer commands, or start typing real Arch install commands.'),
+  ];
+}
+
+function createMotdLines(verificationSummary: string, repo: string): TerminalLine[] {
+  return [
+    createLine('system', 'Welcome to Arch Trainer control shell.'),
+    createLine('output', `verification: ${verificationSummary}`),
+    createLine('output', `repo: ${repo}`),
+    createLine('output', 'Use sessionctl start <difficulty> to boot the installer environment.'),
+    createLine('output', 'Use sessionctl help for pseudo-system commands.'),
+  ];
+}
+
+function createHelpLines(): TerminalLine[] {
+  return [
+    createLine('system', 'sessionctl help'),
+    createLine('output', 'start [difficulty]'),
+    createLine('output', 'sessionctl start <beginner|experienced|expert|god>'),
+    createLine('output', 'sessionctl leaderboard [difficulty]'),
+    createLine('output', 'sessionctl status'),
+    createLine('output', 'sessionctl about'),
+    createLine('output', 'logout | clear | whoami | pwd | ls | uname -a | hostnamectl | cat /etc/motd'),
+    createLine('output', 'During install: use real Arch-style commands, or exit to abort the current session.'),
+  ];
+}
+
+function createLeaderboardLines(rows: LeaderboardEntry[], difficulty?: Difficulty): TerminalLine[] {
+  if (rows.length === 0) {
+    return [
+      createLine('system', `official leaderboard${difficulty ? ` difficulty=${difficulty}` : ''}`),
+      createLine('output', 'no verified runs yet'),
+    ];
+  }
+
+  return [
+    createLine('system', `official leaderboard${difficulty ? ` difficulty=${difficulty}` : ''}`),
+    ...rows.slice(0, 10).map((row, index) =>
+      createLine('output', `${String(index + 1).padStart(2, '0')} ${row.forkName} ${formatDurationMs(row.timeMs)} ${row.difficulty}`),
+    ),
+  ];
+}
+
+function appendLines(lines: TerminalLine[], setTerminalLines: React.Dispatch<React.SetStateAction<TerminalLine[]>>) {
+  setTerminalLines((current) => [...current, ...lines]);
+}
+
+function createLine(kind: TerminalLine['kind'], text: string): TerminalLine {
+  lineCounter += 1;
+  return {
+    id: `tty-${lineCounter}`,
+    kind,
+    text,
+  };
+}
+
+function isDifficulty(value: string): value is Difficulty {
+  return value === 'beginner' || value === 'experienced' || value === 'expert' || value === 'god';
+}
+
+function parseDifficultyToken(value: string | undefined): Difficulty | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  if (isDifficulty(value)) {
+    return value;
+  }
+
+  if (value === 'beginer' || value === 'beg') {
+    return 'beginner';
+  }
+
+  if (value === 'exp') {
+    return 'experienced';
+  }
+
+  return undefined;
+}
+
+function buildStateRows(state: GameState): Array<{ label: string; value: string; status: 'status-good' | 'status-bad' | 'status-active' | 'status-idle' }> {
+  const networkUp = state.networkInterfaces.some((networkInterface) => networkInterface.connected);
+  const selectedDisk = state.install.selectedDisk ?? state.installTargetDisk;
+  const targetDisk = state.disks.find((disk) => disk.device === state.installTargetDisk);
+  return [
+    { label: 'NET', value: networkUp ? 'UP' : 'DOWN', status: networkUp ? 'status-good' : 'status-bad' },
+    { label: 'DISK', value: selectedDisk.replace('/dev/', ''), status: 'status-active' },
+    { label: 'PARTS', value: String(targetDisk?.partitions.length ?? 0), status: (targetDisk?.partitions.length ?? 0) > 0 ? 'status-good' : 'status-idle' },
+    { label: '/mnt', value: state.install.rootMounted ? 'MOUNTED' : 'NO', status: state.install.rootMounted ? 'status-good' : 'status-idle' },
+    { label: 'BASE', value: state.install.packagesInstalled ? 'OK' : '--', status: state.install.packagesInstalled ? 'status-good' : 'status-idle' },
+    { label: 'CHRT', value: state.install.inChroot ? 'YES' : 'NO', status: state.install.inChroot ? 'status-good' : 'status-idle' },
+    { label: 'GRUB', value: state.install.grubInstalled && state.install.grubConfigGenerated ? 'OK' : '--', status: state.install.grubInstalled && state.install.grubConfigGenerated ? 'status-good' : 'status-idle' },
+  ];
+}
+
+function loadUiSettings(): UiSettings {
+  const raw = window.localStorage.getItem(SETTINGS_KEY);
+  if (!raw) {
+    return {
+      preferredDifficulty: 'beginner',
+      compactBoot: false,
+      theme: 'emerald',
+    };
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as Partial<UiSettings>;
+    return {
+      preferredDifficulty: parseDifficultyToken(parsed.preferredDifficulty) ?? 'beginner',
+      compactBoot: Boolean(parsed.compactBoot),
+      theme: parsed.theme === 'amber' || parsed.theme === 'ice' ? parsed.theme : 'emerald',
+    };
+  } catch {
+    return {
+      preferredDifficulty: 'beginner',
+      compactBoot: false,
+      theme: 'emerald',
+    };
+  }
+}
+
+function formatDurationMs(totalMs: number | null): string {
+  if (totalMs === null) {
+    return 'pending';
+  }
+
+  const minutes = Math.floor(totalMs / 60000);
+  const seconds = Math.floor((totalMs % 60000) / 1000);
+  return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+}
+
+async function sha256Hex(input: string): Promise<string> {
+  const digest = await window.crypto.subtle.digest('SHA-256', new TextEncoder().encode(input));
+  return Array.from(new Uint8Array(digest), (value) => value.toString(16).padStart(2, '0')).join('');
+}
