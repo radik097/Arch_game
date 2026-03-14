@@ -171,6 +171,12 @@ export interface VisitorStatsResponse {
   counted: boolean;
 }
 
+export interface CountApiCounterResponse {
+  namespace: string;
+  key: string;
+  value: number;
+}
+
 export interface StatsResponse {
   visitors: {
     totalVisits: number;

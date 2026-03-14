@@ -2,10 +2,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { deriveObjectives } from '../features/simulator/objectives';
 import { completeInput, createInitialState, executeCommand, getPromptLabel } from '../features/simulator/engine';
 import type { Difficulty, GameState, ObjectiveId, TerminalLine } from '../features/simulator/types';
-import { fetchLeaderboard, fetchVisitorStats, registerVisit, startOfficialSession, submitOfficialReplay } from '../features/session/api';
+import { fetchLeaderboard, fetchPublicPageCounter, fetchVisitorStats, hitPublicPageCounter, registerVisit, startOfficialSession, submitOfficialReplay } from '../features/session/api';
 import { createVerificationBundle, getLocalForkConfig, getVerificationSummary } from '../features/session/buildIdentity';
 import { XtermTerminal } from '../features/terminal/XtermTerminal';
-import type { LeaderboardEntry, ReplayCommand, ReplaySubmission, SessionStartResponse, VisitorStatsResponse } from '../shared/replay';
+import type { CountApiCounterResponse, LeaderboardEntry, ReplayCommand, ReplaySubmission, SessionStartResponse, VisitorStatsResponse } from '../shared/replay';
 
 type TerminalMode = 'shell' | 'game';
 type TerminalThemeId = 'emerald' | 'amber' | 'ice';
@@ -75,6 +75,7 @@ export function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [showHint, setShowHint] = useState(false);
   const [visitorStats, setVisitorStats] = useState<VisitorStatsResponse | null>(null);
+  const [publicCounter, setPublicCounter] = useState<CountApiCounterResponse | null>(null);
   const [welcomeOpen, setWelcomeOpen] = useState(true);
   const [tutorialOpen, setTutorialOpen] = useState(false);
   const [tutorialStep, setTutorialStep] = useState(0);
@@ -164,6 +165,21 @@ export function App() {
           setVisitorStats(stats);
         } catch {
           setVisitorStats(null);
+        }
+      });
+  }, []);
+
+  useEffect(() => {
+    void hitPublicPageCounter()
+      .then((counter) => {
+        setPublicCounter(counter);
+      })
+      .catch(async () => {
+        try {
+          const counter = await fetchPublicPageCounter();
+          setPublicCounter(counter);
+        } catch {
+          setPublicCounter(null);
         }
       });
   }, []);
@@ -482,6 +498,7 @@ export function App() {
           createLine('output', `last_message=${runSummary.submissionMessage ?? 'none'}`),
           createLine('output', `visits=${visitorStats?.totalVisits ?? 'unknown'}`),
           createLine('output', `visitors=${visitorStats?.uniqueVisitors ?? 'unknown'}`),
+          createLine('output', `public_views=${publicCounter?.value ?? 'unknown'}`),
         ],
         setTerminalLines,
       );
@@ -943,6 +960,10 @@ export function App() {
                     <span>Last seen</span>
                     <strong className="status-idle">{formatVisitTimestamp(visitorStats?.lastVisitAt ?? null)}</strong>
                   </div>
+                  <div className="sidebar-stat-row">
+                    <span>CountAPI views</span>
+                    <strong className="status-active">{publicCounter?.value ?? '--'}</strong>
+                  </div>
                 </div>
               </section>
 
@@ -963,6 +984,12 @@ export function App() {
               </section>
             </aside>
           </div>
+
+          <footer className="terminal-footer">
+            <span>Visitors: {visitorStats?.totalVisits ?? '--'}</span>
+            <span>Unique: {visitorStats?.uniqueVisitors ?? '--'}</span>
+            <span>Public views: {publicCounter?.value ?? '--'}</span>
+          </footer>
         </div>
 
         {welcomeOpen ? (

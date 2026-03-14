@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { fetchStats } from '../features/session/api';
-import type { StatsResponse } from '../shared/replay';
+import { fetchPublicPageCounter, fetchStats } from '../features/session/api';
+import type { CountApiCounterResponse, StatsResponse } from '../shared/replay';
 
 function formatDuration(ms: number): string {
   const totalSeconds = Math.floor(ms / 1000);
@@ -11,6 +11,7 @@ function formatDuration(ms: number): string {
 
 export function StatsPage() {
   const [stats, setStats] = useState<StatsResponse | null>(null);
+  const [publicCounter, setPublicCounter] = useState<CountApiCounterResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -18,6 +19,14 @@ export function StatsPage() {
       .then(setStats)
       .catch((err: unknown) => {
         setError(err instanceof Error ? err.message : 'Failed to load stats.');
+      });
+  }, []);
+
+  useEffect(() => {
+    fetchPublicPageCounter()
+      .then(setPublicCounter)
+      .catch(() => {
+        setPublicCounter(null);
       });
   }, []);
 
@@ -60,6 +69,10 @@ export function StatsPage() {
                       <strong className="status-idle">
                         {stats.visitors.lastVisitAt ? new Date(stats.visitors.lastVisitAt).toUTCString() : 'never'}
                       </strong>
+                    </div>
+                    <div className="sidebar-stat-row">
+                      <span>CountAPI public views</span>
+                      <strong className="status-active">{publicCounter?.value ?? '--'}</strong>
                     </div>
                   </div>
                 </section>
@@ -116,6 +129,12 @@ export function StatsPage() {
               </div>
             )}
           </div>
+
+          <footer className="terminal-footer">
+            <span>Server visits: {stats?.visitors.totalVisits ?? '--'}</span>
+            <span>Unique: {stats?.visitors.uniqueVisitors ?? '--'}</span>
+            <span>CountAPI views: {publicCounter?.value ?? '--'}</span>
+          </footer>
         </div>
       </section>
     </main>

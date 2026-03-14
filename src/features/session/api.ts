@@ -1,4 +1,5 @@
 import type {
+  CountApiCounterResponse,
   LeaderboardEntry,
   ReplaySubmission,
   ReplayValidationResult,
@@ -11,6 +12,9 @@ import type {
 
 const IS_LOCAL_HOST = typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname);
 const API_BASE_URL = IS_LOCAL_HOST ? 'http://localhost:8787' : '';
+const COUNT_API_BASE_URL = 'https://api.countapi.xyz';
+const COUNT_API_NAMESPACE = 'arch-trainer';
+const COUNT_API_KEY_PAGE_VIEWS = 'page-views';
 
 export async function startOfficialSession(payload: SessionStartRequest): Promise<SessionStartResponse> {
   return requestJson<SessionStartResponse>('/api/start-session', payload);
@@ -50,6 +54,24 @@ export async function fetchStats(): Promise<StatsResponse> {
   }
 
   return (await response.json()) as StatsResponse;
+}
+
+export async function hitPublicPageCounter(): Promise<CountApiCounterResponse> {
+  const response = await fetch(`${COUNT_API_BASE_URL}/hit/${encodeURIComponent(COUNT_API_NAMESPACE)}/${encodeURIComponent(COUNT_API_KEY_PAGE_VIEWS)}`);
+  if (!response.ok) {
+    throw new Error(`CountAPI hit failed with status ${response.status}`);
+  }
+
+  return (await response.json()) as CountApiCounterResponse;
+}
+
+export async function fetchPublicPageCounter(): Promise<CountApiCounterResponse> {
+  const response = await fetch(`${COUNT_API_BASE_URL}/get/${encodeURIComponent(COUNT_API_NAMESPACE)}/${encodeURIComponent(COUNT_API_KEY_PAGE_VIEWS)}`);
+  if (!response.ok) {
+    throw new Error(`CountAPI get failed with status ${response.status}`);
+  }
+
+  return (await response.json()) as CountApiCounterResponse;
 }
 
 async function requestJson<T>(path: string, body: unknown): Promise<T> {
