@@ -26,6 +26,7 @@ npm run build
 - `src/features/simulator`: parser-adjacent command execution, state transitions, and objective derivation
 - `src/features/terminal`: terminal viewport and input loop
 - `src/features/session`: official session client, build identity loader, replay submission logic
+- `src/features/vm`: experimental CheerpX-based browser Linux sandbox integration
 - `src/features/layout`: objective and status panels
 - `src/shared/replay.ts`: replay/session contracts shared by browser and validation server
 - `server/replayValidator.ts`: deterministic anti-cheat replay validation
@@ -133,6 +134,15 @@ npm run build
 - Local mode: any fork, mirror, static host, or offline browser run. The client stays fully usable, but no leaderboard write is possible.
 - Official mode: requires registered GitHub fork, populated `archtrainer.config.json`, signed `build_proof.json`, valid server session, and an accepted replay.
 - Server authority: the browser never sends a trusted score. The server recomputes outcome, official time, install hash, and leaderboard admission.
+
+## Experimental VM Lab
+
+- Route: `/vm`
+- Purpose: optional browser sandbox powered by CheerpX for experimenting inside a prebuilt Linux userspace
+- Scope: separate from the official trainer, replay flow, and leaderboard validation
+- Expected rootfs asset: `public/vm/archlinux.ext2`
+
+The main trainer still uses a deterministic simulator because that is the right fit for guided Arch-install teaching, fast resets, and reproducible validation. The VM Lab is intentionally isolated as an experimental side path.
 
 ## Intentional abstractions
 

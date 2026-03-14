@@ -211,6 +211,20 @@ body {
   cursor: pointer;
 }
 
+.topbar-link-button {
+  min-width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 10px;
+  border: 1px solid var(--menu-button-border);
+  background: var(--menu-button-bg);
+  color: var(--text-muted);
+  text-decoration: none;
+  font: inherit;
+}
+
 .topbar-icon-button.is-active {
   color: var(--menu-accent);
   border-color: var(--menu-accent);
@@ -668,6 +682,82 @@ body {
   background: rgba(0, 0, 0, 0.2);
 }
 
+.vm-page {
+  gap: 18px;
+}
+
+.vm-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+  gap: 16px;
+}
+
+.vm-copy {
+  display: grid;
+  gap: 10px;
+}
+
+.vm-note {
+  display: grid;
+  gap: 8px;
+}
+
+.vm-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.vm-panel {
+  display: grid;
+  gap: 10px;
+}
+
+.vm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.vm-console-shell {
+  display: grid;
+  gap: 0;
+  min-height: 420px;
+  border: 1px solid var(--menu-border);
+  background: rgba(4, 10, 16, 0.85);
+}
+
+.vm-console-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--frame-border);
+  color: var(--text-muted);
+  font-size: 0.73rem;
+}
+
+.vm-console {
+  margin: 0;
+  min-height: 380px;
+  max-height: 60vh;
+  overflow: auto;
+  padding: 14px;
+  background:
+    linear-gradient(180deg, rgba(3, 8, 14, 0.98), rgba(4, 10, 16, 0.98)),
+    repeating-linear-gradient(
+      0deg,
+      rgba(126, 180, 227, 0.05) 0,
+      rgba(126, 180, 227, 0.05) 1px,
+      transparent 1px,
+      transparent 24px
+    );
+  color: #d4edff;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
 @media (max-width: 720px) {
   .app-shell {
     padding: 0;
@@ -712,5 +802,14 @@ body {
   .terminal-menu-panel {
     top: 96px;
     right: 8px;
+  }
+
+  .vm-hero,
+  .vm-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .vm-console-header {
+    flex-direction: column;
   }
 }

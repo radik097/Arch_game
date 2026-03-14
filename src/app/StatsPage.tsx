@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { fetchPublicPageCounter, fetchStats } from '../features/session/api';
 import type { CountApiCounterResponse, StatsResponse } from '../shared/replay';
+import { buildAppPath } from './routes';
 
 function formatDuration(ms: number): string {
   const totalSeconds = Math.floor(ms / 1000);
@@ -39,6 +40,18 @@ export function StatsPage() {
               <span className="topbar-title">ARCH TRAINER</span>
               <span className="topbar-divider">|</span>
               <span className="topbar-difficulty">STATS</span>
+            </div>
+
+            <div className="topbar-actions">
+              <a className="topbar-link-button" href={buildAppPath()}>
+                Trainer
+              </a>
+              <a className="topbar-link-button" href={buildAppPath('docs')}>
+                Docs
+              </a>
+              <a className="topbar-link-button" href={buildAppPath('vm')}>
+                VM Lab
+              </a>
             </div>
           </header>
 

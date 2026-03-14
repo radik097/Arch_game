@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { buildAppPath } from './routes';
 import { deriveObjectives } from '../features/simulator/objectives';
 import { completeInput, createInitialState, executeCommand, getPromptLabel } from '../features/simulator/engine';
 import type { Difficulty, GameState, ObjectiveId, TerminalLine } from '../features/simulator/types';
@@ -698,6 +699,9 @@ export function App() {
             </div>
 
             <div className="topbar-actions">
+              <a className="topbar-link-button" href={buildAppPath('vm')}>
+                VM
+              </a>
               <button
                 className="topbar-icon-button"
                 onClick={() => {

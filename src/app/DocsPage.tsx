@@ -1,3 +1,5 @@
+import { buildAppPath } from './routes';
+
 export function DocsPage() {
   return (
     <main className="app-shell theme-emerald">
@@ -8,6 +10,18 @@ export function DocsPage() {
               <span className="topbar-title">ARCH TRAINER</span>
               <span className="topbar-divider">|</span>
               <span className="topbar-difficulty">DOCS</span>
+            </div>
+
+            <div className="topbar-actions">
+              <a className="topbar-link-button" href={buildAppPath()}>
+                Trainer
+              </a>
+              <a className="topbar-link-button" href={buildAppPath('stats')}>
+                Stats
+              </a>
+              <a className="topbar-link-button" href={buildAppPath('vm')}>
+                VM Lab
+              </a>
             </div>
           </header>
 
