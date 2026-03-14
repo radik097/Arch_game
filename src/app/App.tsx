@@ -70,6 +70,8 @@ export function App() {
   const [terminalLines, setTerminalLines] = useState<TerminalLine[]>(() => createBootLines(loadUiSettings().compactBoot));
   const [now, setNow] = useState(() => Date.now());
   const [isBusy, setIsBusy] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [pausedElapsedMs, setPausedElapsedMs] = useState<number | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [showHint, setShowHint] = useState(false);
   const [visitorStats, setVisitorStats] = useState<VisitorStatsResponse | null>(null);
@@ -175,6 +177,13 @@ export function App() {
     setTerminalLines((current) => [...current, ...nextLines]);
     appendedHistoryRef.current = state.history.length;
   }, [state.history]);
+
+  useEffect(() => {
+    if (mode !== 'game' && isPaused) {
+      setIsPaused(false);
+      setPausedElapsedMs(null);
+    }
+  }, [mode, isPaused]);
 
   useEffect(() => {
     if (mode !== 'game') {
@@ -518,6 +527,10 @@ export function App() {
   }
 
   async function handleGameCommand(command: string) {
+    if (isPaused) {
+      return;
+    }
+
     const normalized = command.trim().toLowerCase();
 
     if (normalized === 'exit' || normalized === 'logout') {
@@ -569,7 +582,7 @@ export function App() {
   }
 
   async function handleTerminalSubmit(command: string) {
-    if (isBusy) {
+    if (isBusy || isPaused) {
       return;
     }
 
@@ -587,17 +600,59 @@ export function App() {
   }
 
   const prompt = `${getPromptLabel(state)} `;
-  const elapsedMs = mode === 'game' ? Math.max(0, now - state.startedAt) : runSummary.officialTimeMs;
-  const timerLabel = mode === 'game' ? 'RUN' : runSummary.officialTimeMs !== null ? 'LAST' : 'IDLE';
+  const elapsedMs = mode === 'game'
+    ? (isPaused && pausedElapsedMs !== null ? pausedElapsedMs : Math.max(0, now - state.startedAt))
+    : runSummary.officialTimeMs;
+  const timerLabel = mode === 'game'
+    ? (isPaused ? 'PAUSE' : 'RUN')
+    : runSummary.officialTimeMs !== null
+      ? 'LAST'
+      : 'IDLE';
   const hintText = currentObjective
     ? `${currentObjective.title}: ${state.lastTeachingNote?.ru ?? state.lastTeachingNote?.en ?? currentObjective.detail}`
     : null;
-  const replayHashPreview = activeRun?.mode === 'official' ? activeRun.lastHash.slice(0, 8) : activeRun?.commands.at(-1)?.hash.slice(0, 8) ?? 'local';
+  const lastReplayCommand = activeRun?.commands[activeRun.commands.length - 1];
+  const replayHashPreview = activeRun?.mode === 'official' ? activeRun.lastHash.slice(0, 8) : lastReplayCommand?.hash.slice(0, 8) ?? 'local';
   const themeOptions: Array<{ id: TerminalThemeId; label: string }> = [
     { id: 'emerald', label: 'Emerald CRT' },
     { id: 'amber', label: 'Amber Phosphor' },
     { id: 'ice', label: 'Ice Console' },
   ];
+
+  function togglePause() {
+    if (mode !== 'game') {
+      return;
+    }
+
+    if (isPaused) {
+      setIsPaused(false);
+      setPausedElapsedMs(null);
+      appendLines([createLine('info', 'session resumed')], setTerminalLines);
+      return;
+    }
+
+    setPausedElapsedMs(Math.max(0, Date.now() - state.startedAt));
+    setIsPaused(true);
+    setMenuOpen(false);
+    appendLines([createLine('system', 'session paused')], setTerminalLines);
+  }
+
+  function stopPausedSession() {
+    if (activeRunRef.current) {
+      activeRunRef.current.submitted = true;
+    }
+    appendLines([createLine('system', 'installer session aborted from pause menu')], setTerminalLines);
+    setIsPaused(false);
+    setPausedElapsedMs(null);
+    setMode('shell');
+  }
+
+  async function restartFromPause(forceLocal = false) {
+    setIsPaused(false);
+    setPausedElapsedMs(null);
+    setMode('shell');
+    await startRun(uiSettings.preferredDifficulty, forceLocal);
+  }
 
   return (
     <main className={`app-shell theme-${uiSettings.theme}`}>
@@ -635,6 +690,15 @@ export function App() {
               >
                 LB
               </button>
+              {mode === 'game' ? (
+                <button
+                  className={`topbar-icon-button${isPaused ? ' is-active' : ''}`}
+                  onClick={togglePause}
+                  type="button"
+                >
+                  {isPaused ? 'RES' : 'PAUSE'}
+                </button>
+              ) : null}
               {hintText ? (
                 <button
                   className={`topbar-icon-button${showHint ? ' is-active' : ''}`}
@@ -759,12 +823,35 @@ export function App() {
             </aside>
           ) : null}
 
-          <div className="terminal-workspace">
+          {isPaused ? (
+            <div className="pause-overlay" role="dialog" aria-modal="true">
+              <div className="pause-card">
+                <h2>Session Paused</h2>
+                <p>Terminal input is disabled while paused.</p>
+                <div className="tutorial-actions">
+                  <button className="menu-action" onClick={togglePause} type="button">
+                    Resume
+                  </button>
+                  <button className="menu-action menu-action-secondary" onClick={stopPausedSession} type="button">
+                    Stop Session
+                  </button>
+                  <button className="menu-action" onClick={() => void restartFromPause(false)} type="button">
+                    Start Session
+                  </button>
+                  <button className="menu-action menu-action-secondary" onClick={() => void restartFromPause(true)} type="button">
+                    Start Sandbox
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          <div className={`terminal-workspace${isPaused ? ' is-paused' : ''}`}>
             <div className="terminal-main-pane">
               <XtermTerminal
                 lines={terminalLines}
                 prompt={prompt}
-                showPrompt={!isBusy}
+                showPrompt={!isBusy && !isPaused}
                 inputMode="text"
                 theme={uiSettings.theme}
                 onTabComplete={(buffer) => completeInput(state, buffer)}

@@ -273,6 +273,38 @@ body {
   background: rgba(3, 6, 9, 0.92);
 }
 
+.pause-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 7;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(3, 6, 9, 0.72);
+}
+
+.pause-card {
+  width: min(560px, 100%);
+  display: grid;
+  gap: 10px;
+  padding: 20px;
+  border: 1px solid var(--menu-border);
+  background: var(--menu-bg);
+}
+
+.pause-card h2 {
+  margin: 0;
+  color: var(--menu-accent);
+  font-size: 1rem;
+}
+
+.pause-card p {
+  margin: 0;
+  color: var(--text-main);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
 .welcome-card {
   width: min(560px, 100%);
   display: grid;
@@ -438,6 +470,11 @@ body {
   overflow-x: auto;
 }
 
+.terminal-workspace.is-paused {
+  filter: blur(2px) brightness(0.72);
+  pointer-events: none;
+}
+
 .terminal-main-pane {
   flex: 1;
   min-width: 0;
@@ -572,6 +609,51 @@ body {
 .xterm-shell .xterm-screen,
 .xterm-shell .xterm-rows {
   width: 100% !important;
+}
+
+.docs-page {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  max-height: 100%;
+  overflow-y: auto;
+}
+
+.docs-page h1,
+.docs-page h2 {
+  margin: 0;
+  color: var(--menu-accent);
+}
+
+.docs-page h1 {
+  font-size: 1rem;
+}
+
+.docs-page h2 {
+  font-size: 0.86rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.docs-page p,
+.docs-page li {
+  margin: 0;
+  color: var(--text-main);
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
+.docs-page ul {
+  margin: 0;
+  padding-left: 20px;
+  display: grid;
+  gap: 6px;
+}
+
+.docs-note {
+  padding: 10px 12px;
+  border: 1px solid var(--menu-border);
+  background: rgba(0, 0, 0, 0.2);
 }
 
 @media (max-width: 720px) {

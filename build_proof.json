@@ -1,9 +1,9 @@
 {
   "version": 1,
-  "build_hash": "77336c2204910339584e35215dfba65ef75ea193ec517ca7e05004805a31bdd0",
-  "config_hash": "dcfa400f7df30e5c19ebd02f5e4da08191afb74cbd660c88249042f979184a5a",
-  "generated_at": "2026-03-13T22:53:20.127Z",
-  "build_id": "1713038ec24d4f55",
+  "build_hash": "49e8997eb402072efb3eaa261f15bf8d7885cfefef9382733e4386c69dd4c07e",
+  "config_hash": "830ee7fde24caf613e46fc2b9b8689bd92f10540263dbaa0f0a12dd1a08967e5",
+  "generated_at": "2026-03-14T01:10:03.698Z",
+  "build_id": "9cffe9015d14ee94",
   "files_hashed": [
     "index.html",
     "package.json",
@@ -16,6 +16,7 @@
     "server/test/verification.test.ts",
     "server/verification.ts",
     "src/app/App.tsx",
+    "src/app/DocsPage.tsx",
     "src/app/StatsPage.tsx",
     "src/features/layout/ObjectivePanel.tsx",
     "src/features/layout/StatusPanel.tsx",
