@@ -52,6 +52,9 @@ jobs:
           VITE_BASE_PATH: /${{ github.event.repository.name }}/
         run: npm run build:client
 
+      - name: Diagnostic listing
+        run: ls -R dist
+
       - name: Prepare Pages artifact
         run: |
           cp dist/index.html dist/404.html
