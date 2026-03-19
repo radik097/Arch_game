@@ -143,6 +143,57 @@ export const VmPanel: React.FC<VmPanelProps> = ({ onExit }) => {
     }
   };
 
+  const handleSaveState = async () => {
+    if (emulatorRef.current) {
+      try {
+        const state = await emulatorRef.current.save_state();
+        const a = document.createElement('a');
+        a.download = 'v86state.bin';
+        const blob = new Blob([state], { type: 'application/octet-stream' });
+        const url = window.URL.createObjectURL(blob);
+        a.href = url;
+        a.click();
+        window.URL.revokeObjectURL(url);
+        setStatusText('STATE_SAVED');
+      } catch (err) {
+        console.error('Failed to save state:', err);
+        setStatusText('SAVE_FAILED');
+      }
+    }
+  };
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleRestoreClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleRestoreState = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files?.length && emulatorRef.current) {
+      const file = e.target.files[0];
+      const filereader = new FileReader();
+      
+      setStatusText('RESTORING...');
+
+      filereader.onload = async (event) => {
+        try {
+          if (event.target?.result instanceof ArrayBuffer) {
+            await emulatorRef.current.restore_state(event.target.result);
+            emulatorRef.current.run();
+            setStatusText('STATE_RESTORED');
+            focusScreen();
+          }
+        } catch (err) {
+          console.error('Failed to restore state:', err);
+          setStatusText('RESTORE_FAILED');
+        }
+      };
+      filereader.readAsArrayBuffer(file);
+      // Reset input so the same file can be selected again
+      e.target.value = '';
+    }
+  };
+
   return (
     <div className="vm-panel-container">
       <header className="vm-header">
@@ -153,6 +204,15 @@ export const VmPanel: React.FC<VmPanelProps> = ({ onExit }) => {
         <div className="vm-controls">
           <button className="vm-btn" onClick={btnClick(handlePause)}>PAUSE</button>
           <button className="vm-btn" onClick={btnClick(handleReboot)}>REBOOT</button>
+          <button className="vm-btn" onClick={btnClick(handleSaveState)}>EXPORT_STATE</button>
+          <button className="vm-btn" onClick={btnClick(handleRestoreClick)}>IMPORT_STATE</button>
+          <input 
+            type="file" 
+            ref={fileInputRef} 
+            onChange={handleRestoreState} 
+            style={{ display: 'none' }} 
+            accept=".bin"
+          />
           <button className="vm-btn exit" onClick={onExit}>EXIT_TO_MAP</button>
         </div>
       </header>

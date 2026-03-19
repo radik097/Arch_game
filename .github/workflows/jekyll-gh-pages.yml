@@ -56,7 +56,9 @@ jobs:
 
       - name: Prepare Pages artifact
         run: |
+          # Use 404.html trick for SPA routing
           cp dist/index.html dist/404.html
+          # Ensure Jekyll is disabled
           touch dist/.nojekyll
 
       - name: Upload Pages artifact
