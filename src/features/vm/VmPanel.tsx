@@ -56,7 +56,7 @@ export const VmPanel: React.FC<VmPanelProps> = ({ onExit }) => {
           bios: { url: `${base}images/seabios.bin` },
           vga_bios: { url: `${base}images/vgabios.bin` },
           cdrom: { 
-            url: 'https://mirror.archlinux32.org/archisos/archlinux32-2024.07.10-i686.iso', 
+            url: `${base}images/arch.iso`, 
             async: true, 
             size: 834666496 
           },

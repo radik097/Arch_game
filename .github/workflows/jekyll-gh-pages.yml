@@ -42,8 +42,7 @@ jobs:
           mkdir -p public/images
           curl -L "https://copy.sh/v86/bios/seabios.bin" -o public/images/seabios.bin
           curl -L "https://copy.sh/v86/bios/vgabios.bin" -o public/images/vgabios.bin
-          curl -L "https://raw.githubusercontent.com/radik097/Arch_game/Work/public/images/arch.iso" -o public/images/arch.iso || \
-          curl -L "https://copy.sh/v86/images/linux.iso" -o public/images/arch.iso
+          curl -L "https://mirror.archlinux32.org/archisos/archlinux32-2024.07.10-i686.iso" -o public/images/arch.iso
           # Note: Since the real arch.iso is too large for GitHub, we fall back to a smaller linux.iso if unavailable.
           # Ideally, the user should provide a stable URL for the arch.iso.
 
