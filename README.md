@@ -1,56 +1,65 @@
-# Arch Trainer (Sandbox & Test / Песочница и Тест)
+# 🏗️ Arch Trainer | Симулятор Установки Arch Linux
 
-**[EN]** Arch Trainer is an experimental sandbox environment designed to practice Arch Linux installation logic directly in the browser. This is a **testing and learning project** created to explore in-browser virtualization and interactive educational interfaces.
-
-**[RU]** Arch Trainer — это экспериментальная песочница, предназначенная для практики логики установки Arch Linux прямо в браузере. Это **тестовый и учебный проект**, созданный для изучения виртуализации в браузере и интерактивных образовательных интерфейсов.
-
----
-
-## 🚀 Live Demo / Живое демо
-**[https://radik097.github.io/Arch_game/](https://radik097.github.io/Arch_game/)**
+<div align="center">
+  <img src="https://img.shields.io/badge/Status-Experimental-orange?style=for-the-badge" alt="Status" />
+  <img src="https://img.shields.io/badge/License-MIT-blue?style=for-the-badge" alt="License" />
+  <img src="https://img.shields.io/badge/Framework-React-61DAFB?style=for-the-badge&logo=react" alt="React" />
+  <img src="https://img.shields.io/badge/Virtualization-V86-FF6C37?style=for-the-badge" alt="V86" />
+</div>
 
 ---
 
-## 🏗️ Core Features / Основные возможности
+## 🇺🇸 English Version
 
-- **V86 Virtual Machine Integration**: Boot a real Arch Linux 32-bit ISO directly in your browser using the `v86` emulator.
-  **Интеграция ВМ V86**: Загрузка реального образа Arch Linux 32-bit прямо в браузере с помощью эмулятора `v86`.
-- **Interactive Graph UI**: Navigate the installation stages via a premium, glowing node-based interface.
-  **Интерактивный граф**: Навигация по этапам установки через премиальный интерфейс с узлами и эффектами свечения.
-- **Automated CI/CD**: Seamless deployment to GitHub Pages with automated binary asset fetching during the build.
-  **Автоматизированный CI/CD**: Бесшовный деплой на GitHub Pages с автоматическим получением бинарных файлов во время сборки.
+### 🌟 Project Overview
+**Arch Trainer** is an interactive, browser-based sandbox designed to help users master the Arch Linux installation process. It combines a high-fidelity terminal simulator with a real 32-bit virtual machine (v86) to provide a safe, dependency-free learning environment.
+
+### 🚀 Key Features
+- **Deterministic Simulation**: A state-driven command engine that mimics real Arch commands (`pacstrap`, `genfstab`, `mkfs`, etc.).
+- **Live V86 VM**: Boot a real Arch Linux ISO directly in your browser with optimized 9p filesystem support.
+- **Interactive Graph Map**: Visualize the installation journey through a premium, glowing node-based architecture.
+- **State Persistence**: Save and restore your VM progress at any time.
+
+### 🛠️ Quick Start
+1. **Explore the Map**: Choose your starting point (Simulated or Live VM).
+2. **Follow the Flow**: Navigate through Partitioning, Base Install, and Configuration.
+3. **Master the Terminal**: Practice real-world commands without risking your hardware.
 
 ---
 
-## 🛠️ Local Development / Локальная разработка
+## 🇷🇺 Русская Версия
 
+### 🌟 О Проекте
+**Arch Trainer** — это интерактивная браузерная песочница, созданная для того, чтобы помочь пользователям освоить процесс установки Arch Linux. Проект сочетает в себе высокоточный симулятор терминала и реальную 32-битную виртуальную машину (v86) для обеспечения безопасной среды обучения без установки дополнительных зависимостей.
+
+### 🚀 Основные Возможности
+- **Детерминированная Симуляция**: Движок команд на основе состояний, имитирующий реальные команды Arch (`pacstrap`, `genfstab`, `mkfs` и т.д.).
+- **Живая ВМ V86**: Загрузка реального ISO-образа Arch Linux прямо в браузере с оптимизированной поддержкой файловой системы 9p.
+- **Интерактивная Карта**: Визуализация процесса установки через премиальный интерфейс на основе узлов и эффектов свечения.
+- **Сохранение Состояния**: Возможность сохранять и восстанавливать прогресс ВМ в любое время.
+
+### 🛠️ Быстрый Старт
+1. **Изучите Карту**: Выберите точку входа (Симулятор или Живая ВМ).
+2. **Следуйте Потоку**: Пройдите этапы разметки диска, базовой установки и настройки.
+3. **Освойте Терминал**: Практикуйте реальные команды, не рискуя своим оборудованием.
+
+---
+
+## 💻 Tech Stack / Технологии
+- **Frontend**: React + Vite + TypeScript
+- **Styling**: Vanilla CSS (Cyberpunk Aesthetic)
+- **Virtualization**: [v86](https://github.com/copy/v86) (WebAssembly)
+- **Deployment**: GitHub Pages (CI/CD via GitHub Actions)
+
+---
+
+## 🔧 Installation / Установка
 ```bash
-# Clone the repository / Клонируйте репозиторий
 git clone https://github.com/radik097/Arch_game.git
 cd Arch_game
-
-# Install dependencies / Установите зависимости
 npm install --legacy-peer-deps
-
-# Start dev server / Запустите сервер разработки
 npm run dev
 ```
 
 ---
-
-## 📜 Architecture / Архитектура
-
-- `src/features/vm`: V86 engine integration and VM panel UI.
-- `src/features/landing`: Interactive React-Flow based graph landing page.
-- `src/features/simulator`: Command simulation and state validation core.
-- `.github/workflows`: CI/CD pipeline for GitHub Pages deployment.
-
----
-
-## ⚠️ Disclaimer / Дисклеймер
-
-**[EN]** This project is currently in a **"test and try"** phase. It is a sandbox for architectural experimentation and is not intended for mission-critical training.
-**[RU]** Этот проект находится в фазе **"тестирования и проб"**. Это песочница для архитектурных экспериментов, не предназначенная для критически важного обучения.
-
----
-MIT License | Inspired by Arch Linux
+*Inspired by the Arch Linux passion. Built for the community.*

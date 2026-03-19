@@ -22,18 +22,23 @@ interface Connector {
 }
 
 const INITIAL_NODES: GraphNode[] = [
-  { id: 'sim',    label: 'TERMINAL_SIM',    subtitle: 'Arch Install Simulator', x: 420, y: 220, type: 'core',   icon: '▶', route: '/simulations', color: '#00d4ff' },
-  { id: 'vm',     label: 'VIRTUAL_MACHINE', subtitle: 'V86 Live ISO Boot',      x: 620, y: 220, type: 'core',   icon: '◆', route: '/vm',          color: '#a855f7' },
-  { id: 'about',  label: 'ABOUT_PROJECT',   subtitle: 'Mission & Tech Stack',   x: 320, y: 400, type: 'info',   icon: '◎', route: '/about',       color: '#22c55e' },
-  { id: 'help',   label: 'CONTRIBUTE',      subtitle: 'Fork & Pull Request',    x: 520, y: 400, type: 'info',   icon: '⚑', route: '/help',        color: '#f59e0b' },
-  { id: 'plugin', label: 'AA_MOD',          subtitle: 'Load Custom Plugin',     x: 180, y: 310, type: 'plugin', icon: '⊕',                        color: '#ef4444' },
+  { id: 'preflight', label: '1. PRE_FLIGHT_ISO',   subtitle: 'Boot & Kernel Setup',   x: 600, y: 120, type: 'core',   icon: '⏹️', route: '/vm',          color: '#a855f7' },
+  { id: 'disk',      label: '2. DISK_MANAGEMENT',  subtitle: 'fdisk & Partitioning',  x: 400, y: 120, type: 'core',   icon: '💾', route: '/simulations', color: '#00d4ff' },
+  { id: 'mount',     label: '3. FILESYSTEM_MOUNTS',subtitle: 'Mount & Swap Setup',    x: 200, y: 120, type: 'core',   icon: '🔗', route: '/simulations', color: '#22c55e' },
+  { id: 'base',      label: '4. BASE_STRAPS',      subtitle: 'pacstrap System',       x: 200, y: 320, type: 'core',   icon: '📦', route: '/simulations', color: '#f59e0b' },
+  { id: 'chroot',    label: '5. CHROOT_INTERNAL',  subtitle: 'Configuration Stage',   x: 400, y: 320, type: 'core',   icon: '🏗️', route: '/simulations', color: '#8b5cf6' },
+  { id: 'ready',     label: '6. SYSTEM_READY',     subtitle: 'Grub & Final Steps',    x: 600, y: 320, type: 'core',   icon: '🏁', route: '/simulations', color: '#10b981' },
+  
+  { id: 'about',     label: 'ABOUT_PROJECT',       subtitle: 'Mission & Stack',       x: 400, y: 500, type: 'info',   icon: '◎', route: '/about',       color: '#94a3b8' },
 ];
 
 const INITIAL_CONNECTORS: Connector[] = [
-  { id: 'c1', source: 'plugin', target: 'sim', animated: true },
-  { id: 'c2', source: 'sim',    target: 'vm',  animated: true },
-  { id: 'c3', source: 'about',  target: 'sim', animated: false },
-  { id: 'c4', source: 'help',   target: 'about', animated: false },
+  { id: 'c1', source: 'preflight', target: 'disk',      animated: true },
+  { id: 'c2', source: 'disk',      target: 'mount',     animated: true },
+  { id: 'c3', source: 'mount',     target: 'base',      animated: true },
+  { id: 'c4', source: 'base',      target: 'chroot',    animated: true },
+  { id: 'c5', source: 'chroot',    target: 'ready',     animated: true },
+  { id: 'c6', source: 'ready',     target: 'about',     animated: false },
 ];
 
 const NODE_W = 160;
