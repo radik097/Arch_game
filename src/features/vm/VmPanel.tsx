@@ -70,6 +70,10 @@ export const VmPanel: React.FC<VmPanelProps> = ({ onExit }) => {
           autostart: true,
           disable_keyboard: false,
           disable_mouse: false,
+          hda: {
+            size: 10 * 1024 * 1024 * 1024, // 10GB
+            async: true
+          }
         };
 
         if (config.bootMode === 'iso') {
@@ -419,8 +423,8 @@ export const VmPanel: React.FC<VmPanelProps> = ({ onExit }) => {
                 <h4>VM_SPECIFICATIONS</h4>
                 <div className="hardware-grid">
                   <div className="hw-item">
-                    <span className="hw-label">ARCH</span>
-                    <span className="hw-value">i686</span>
+                    <span className="hw-label">DISK</span>
+                    <span className="hw-value">10GB_VDA</span>
                   </div>
                   <div className="hw-item">
                     <span className="hw-label">MEM</span>
