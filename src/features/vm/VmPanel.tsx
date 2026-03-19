@@ -263,17 +263,26 @@ export const VmPanel: React.FC<VmPanelProps> = ({ onExit }) => {
               
               <div className="setup-body">
                 <div className="setting-group">
-                  <label>SYSTEM_MEMORY (RAM)</label>
-                  <div className="memory-selector">
-                    {[256, 512, 1024].map((size) => (
-                      <button 
-                        key={size}
-                        className={`mem-option ${config.memorySize === size ? 'active' : ''}`}
-                        onClick={() => setConfig({ ...config, memorySize: size })}
-                      >
-                        {size}MB
-                      </button>
-                    ))}
+                  <label>SYSTEM_MEMORY_ALLOCATION</label>
+                  <div className="memory-slider-container">
+                    <input 
+                      type="range" 
+                      min="256" 
+                      max="8192" 
+                      step="256"
+                      value={config.memorySize}
+                      onChange={(e) => setConfig({ ...config, memorySize: parseInt(e.target.value) })}
+                      className="memory-slider"
+                    />
+                    <div className="memory-display">
+                      <span className="memory-value">{config.memorySize}</span>
+                      <span className="memory-unit">MB</span>
+                      {config.memorySize >= 1024 && (
+                        <span className="memory-gb-hint">
+                          ({(config.memorySize / 1024).toFixed(1)} GB)
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
 

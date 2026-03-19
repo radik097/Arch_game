@@ -63,7 +63,9 @@ export const MainGraph: React.FC<{ onAddPlugin: (url: string) => void }> = ({ on
 
   const handleMouseDown = useCallback((id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    setDragging(id);
+    if (e.ctrlKey) {
+      setDragging(id);
+    }
   }, []);
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
@@ -80,15 +82,14 @@ export const MainGraph: React.FC<{ onAddPlugin: (url: string) => void }> = ({ on
 
   const handleMouseUp = useCallback(() => setDragging(null), []);
 
-  const handleNodeClick = useCallback((node: GraphNode) => {
-    if (dragging) return; // Don't navigate while dragging
+  const navigateToNode = useCallback((node: GraphNode) => {
     if (node.id === 'plugin') {
       const url = prompt('Enter plugin config URL:', 'https://example.com/mod.json');
       if (url) onAddPlugin(url);
     } else if (node.route) {
       navigate(node.route);
     }
-  }, [dragging, navigate, onAddPlugin]);
+  }, [navigate, onAddPlugin]);
 
   const glowIntensity = (Math.sin((pulsePhase * Math.PI) / 180) + 1) / 2;
 
@@ -242,10 +243,9 @@ export const MainGraph: React.FC<{ onAddPlugin: (url: string) => void }> = ({ on
               onMouseDown={(e) => handleMouseDown(node.id, e)}
               onMouseEnter={() => setHovered(node.id)}
               onMouseLeave={() => setHovered(null)}
-              onClick={() => handleNodeClick(node)}
               filter={isHovered ? `url(#glow-${node.id})` : undefined}
             >
-              {/* Outer glow rect (always visible, subtle) */}
+              {/* Outer glow rect */}
               <rect
                 x="-3" y="-3"
                 width={NODE_W + 6} height={NODE_H + 6}
@@ -295,7 +295,20 @@ export const MainGraph: React.FC<{ onAddPlugin: (url: string) => void }> = ({ on
                 </text>
               )}
 
-              {/* Socket: Input (left) */}
+              {/* Play Button */}
+              <g 
+                className="node-play-btn"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigateToNode(node);
+                }}
+                transform={`translate(${NODE_W - 24}, ${NODE_H / 2})`}
+              >
+                <circle r="14" fill={node.color} fillOpacity="0.1" className="play-bg" />
+                <path d="M -3 -4.5 L 5 0 L -3 4.5 Z" fill={node.color} />
+              </g>
+
+              {/* Sockets */}
               <circle cx="-2" cy={NODE_H / 2} r="5" className="socket input" style={{ fill: node.color }} />
               <circle cx="-2" cy={NODE_H / 2} r="2" className="socket-inner" />
 
@@ -310,7 +323,7 @@ export const MainGraph: React.FC<{ onAddPlugin: (url: string) => void }> = ({ on
       {/* Bottom status bar */}
       <div className="graph-statusbar">
         <span className="status-item">◉ SYSTEM ONLINE</span>
-        <span className="status-item">DRAG TO MOVE • CLICK TO NAVIGATE</span>
+        <span className="status-item">CTRL + DRAG TO MOVE • CLICK ▶ TO RUN</span>
         <span className="status-item pulse-text">v0.1.0</span>
       </div>
     </div>

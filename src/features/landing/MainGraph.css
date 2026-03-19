@@ -252,6 +252,29 @@
   filter: drop-shadow(0 0 4px currentColor);
 }
 
+/* ===== Play Button ===== */
+.node-play-btn {
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.node-play-btn:hover {
+  transform: scale(1.15) translate(145.45px, 32px); /* Adjustment for coordinate space balance if needed, but translate is already handled by transform in TSX */
+}
+
+/* Re-adjusting translate for hover in CSS is tricky with SVG transform; let's stick to simple scale or internal group */
+.node-play-btn:hover .play-bg {
+  fill-opacity: 0.25;
+}
+
+.node-play-btn:hover path {
+  filter: drop-shadow(0 0 8px currentColor);
+}
+
+.node-play-btn:active {
+  transform: scale(0.95);
+}
+
 /* ===== Status Bar ===== */
 .graph-statusbar {
   position: absolute;
