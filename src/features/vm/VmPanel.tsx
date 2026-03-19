@@ -70,10 +70,7 @@ export const VmPanel: React.FC<VmPanelProps> = ({ onExit }) => {
           autostart: true,
           disable_keyboard: false,
           disable_mouse: false,
-          hda: {
-            size: 2 * 1024 * 1024 * 1024, // 2GB (sensible for browser memory)
-          },
-          boot_order: "dca" // Boot from CD-ROM first
+          boot_order: "dca"
         };
 
         if (config.bootMode === 'iso') {
