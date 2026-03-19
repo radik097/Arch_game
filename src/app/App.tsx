@@ -671,6 +671,42 @@ export function App() {
               </div>
 
               <div className="sidebar-section">
+                <h4>SYSTEM_METRICS</h4>
+                <div className="metrics-list">
+                  <div className="metric-item">
+                    <label>CPU_LOAD</label>
+                    <div className="meter-bar">
+                      <div className="meter-fill" style={{ width: `${Math.floor(Math.random() * 5) + 2}%` }}></div>
+                    </div>
+                  </div>
+                  <div className="metric-item">
+                    <label>RAM_USAGE</label>
+                    <div className="meter-bar">
+                      <div className="meter-fill" style={{ width: '12%' }}></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="sidebar-section">
+                <h4>HARDWARE_DETAILS</h4>
+                <div className="hardware-grid">
+                  <div className="hw-item">
+                    <span className="hw-label">ARCH</span>
+                    <span className="hw-value">i686</span>
+                  </div>
+                  <div className="hw-item">
+                    <span className="hw-label">DISK</span>
+                    <span className="hw-value">1TB_SDA</span>
+                  </div>
+                  <div className="hw-item">
+                    <span className="hw-label">EFI</span>
+                    <span className="hw-value">ENABLED</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="sidebar-section">
                 <h4>INSTALL_STATUS</h4>
                 <div className="status-grid">
                   <div className={`status-item ${state.install.rootMounted ? 'complete' : ''}`}>ROOT_MNT</div>
@@ -719,6 +755,10 @@ function createBootLines(compactBoot: boolean): TerminalLine[] {
 
   return [
     createLine('output', 'Arch Linux 6.8.9-arch1 (tty1)'),
+    createLine('system', '[  OK  ] Started systemd-journald.service.'),
+    createLine('system', '[  OK  ] Mounted /proc and /sys API filesystems.'),
+    createLine('system', '[  OK  ] Identified block device: /dev/sda (1T)'),
+    createLine('system', '[  OK  ] Initialized network interface: eth0 (DHCP)'),
     createLine('system', '[  OK  ] Reached target Multi-User System.'),
     createLine('system', '[  OK  ] Started arch-trainer-control.service.'),
     createLine('info', 'This is the Arch Linux installation medium.'),

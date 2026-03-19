@@ -620,3 +620,68 @@ body {
     right: 8px;
   }
 }
+
+/* ===== Sidebar Metrics & Hardware ===== */
+.metrics-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.metric-item {
+  display: grid;
+  gap: 6px;
+}
+
+.metric-item label {
+  font-size: 9px;
+  color: #475569;
+  letter-spacing: 0.1em;
+  font-weight: 600;
+}
+
+.meter-bar {
+  height: 4px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.meter-fill {
+  height: 100%;
+  background: #0088cc; /* Default theme color */
+  box-shadow: 0 0 10px rgba(0, 136, 204, 0.4);
+  transition: width 0.5s ease;
+}
+
+.hardware-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.hw-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.hw-label {
+  font-size: 8px;
+  color: #475569;
+}
+
+.hw-value {
+  font-size: 10px;
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+/* Theme overrides for meters */
+.theme-emerald .meter-fill { background: #10b981; box-shadow: 0 0 10px rgba(16, 185, 129, 0.4); }
+.theme-amber .meter-fill { background: #f59e0b; box-shadow: 0 0 10px rgba(245, 158, 11, 0.4); }
+.theme-ice .meter-fill { background: #0ea5e9; box-shadow: 0 0 10px rgba(14, 165, 233, 0.4); }

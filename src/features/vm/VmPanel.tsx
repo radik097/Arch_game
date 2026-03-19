@@ -15,22 +15,33 @@ declare global {
 export const VmPanel: React.FC<VmPanelProps> = ({ onExit }) => {
   const screenRef = useRef<HTMLDivElement>(null);
   const emulatorRef = useRef<any>(null);
-  const [status, setStatus] = useState<'loading' | 'booting' | 'ready' | 'error'>('loading');
-  const [statusText, setStatusText] = useState('LOADING_WASM...');
+  const [status, setStatus] = useState<'setup' | 'loading' | 'booting' | 'ready' | 'error'>('setup');
+  const [config, setConfig] = useState({
+    memorySize: 512, // MB
+    bootMode: 'iso' as 'iso' | '9p',
+  });
+  const [statusText, setStatusText] = useState('SYSTEM_IDLE');
   const [memUsage, setMemUsage] = useState('0');
 
   // Focus the screen container to enable keyboard input
   const focusScreen = useCallback(() => {
-    screenRef.current?.focus();
-  }, []);
+    if (status === 'ready') {
+      screenRef.current?.focus();
+    }
+  }, [status]);
+
+  const startV86 = () => {
+    setStatus('loading');
+  };
 
   useEffect(() => {
+    if (status === 'setup' || status === 'error') return;
+
     let emulator: any = null;
     let memInterval: ReturnType<typeof setInterval> | null = null;
 
     async function initV86() {
       try {
-        setStatus('loading');
         setStatusText('LOADING_V86_ENGINE...');
 
         const v86Module = await import('v86');
@@ -48,22 +59,39 @@ export const VmPanel: React.FC<VmPanelProps> = ({ onExit }) => {
 
         const base = import.meta.env.BASE_URL;
 
-        emulator = new V86Constructor({
+        const options: any = {
           wasm_path: `${base}v86.wasm`,
-          memory_size: 512 * 1024 * 1024,
+          memory_size: config.memorySize * 1024 * 1024,
           vga_memory_size: 8 * 1024 * 1024,
           screen_container: screenRef.current,
           bios: { url: `${base}images/seabios.bin` },
           vga_bios: { url: `${base}images/vgabios.bin` },
-          cdrom: { 
-            url: `${base}images/arch.iso`, 
-            async: true, 
-            size: 834666496 
-          },
           autostart: true,
           disable_keyboard: false,
           disable_mouse: false,
-        });
+        };
+
+        if (config.bootMode === 'iso') {
+          options.cdrom = { 
+            url: `${base}images/arch.iso`, 
+            async: true, 
+            size: 834666496 
+          };
+        } else {
+          // 9p mode
+          options.filesystem = {
+            baseurl: `${base}images/arch/`,
+            basefs: `${base}images/fs.json`,
+          };
+          options.bzimage_initrd_from_filesystem = true;
+          options.cmdline = [
+            "rw",
+            "root=host9p rootfstype=9p rootflags=trans=virtio,cache=loose",
+            "init=/usr/bin/init-openrc",
+          ].join(" ");
+        }
+
+        emulator = new V86Constructor(options);
 
         emulatorRef.current = emulator;
 
@@ -100,7 +128,9 @@ export const VmPanel: React.FC<VmPanelProps> = ({ onExit }) => {
       }
     }
 
-    initV86();
+    if (status === 'loading') {
+      initV86();
+    }
 
     return () => {
       if (memInterval) clearInterval(memInterval);
@@ -112,7 +142,8 @@ export const VmPanel: React.FC<VmPanelProps> = ({ onExit }) => {
         emulatorRef.current = null;
       }
     };
-  }, [focusScreen]);
+  }, [status, config.memorySize, focusScreen]);
+
 
   // Blur buttons after click so keyboard goes back to VM
   const btnClick = useCallback((handler: () => void) => {
@@ -202,8 +233,12 @@ export const VmPanel: React.FC<VmPanelProps> = ({ onExit }) => {
           <span className="status-text">{statusText}</span>
         </div>
         <div className="vm-controls">
-          <button className="vm-btn" onClick={btnClick(handlePause)}>PAUSE</button>
-          <button className="vm-btn" onClick={btnClick(handleReboot)}>REBOOT</button>
+          {status !== 'setup' && (
+            <>
+              <button className="vm-btn" onClick={btnClick(handlePause)}>PAUSE</button>
+              <button className="vm-btn" onClick={btnClick(handleReboot)}>REBOOT</button>
+            </>
+          )}
           <button className="vm-btn" onClick={btnClick(handleSaveState)}>EXPORT_STATE</button>
           <button className="vm-btn" onClick={btnClick(handleRestoreClick)}>IMPORT_STATE</button>
           <input 
@@ -218,11 +253,84 @@ export const VmPanel: React.FC<VmPanelProps> = ({ onExit }) => {
       </header>
 
       <main className="vm-main">
-        {status === 'loading' && (
+        {status === 'setup' && (
+          <div className="vm-setup-overlay">
+            <div className="setup-card">
+              <div className="setup-header">
+                <span className="setup-icon">⚛</span>
+                <h2>VM_CONFIGURATION</h2>
+              </div>
+              
+              <div className="setup-body">
+                <div className="setting-group">
+                  <label>SYSTEM_MEMORY (RAM)</label>
+                  <div className="memory-selector">
+                    {[256, 512, 1024].map((size) => (
+                      <button 
+                        key={size}
+                        className={`mem-option ${config.memorySize === size ? 'active' : ''}`}
+                        onClick={() => setConfig({ ...config, memorySize: size })}
+                      >
+                        {size}MB
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="setting-group">
+                  <label>SYSTEM_BOOT_MODE</label>
+                  <div className="mode-selector">
+                    <button 
+                      className={`mode-option ${config.bootMode === 'iso' ? 'active' : ''}`}
+                      onClick={() => setConfig({ ...config, bootMode: 'iso' })}
+                    >
+                      CD-ROM (ISO)
+                    </button>
+                    <button 
+                      className={`mode-option ${config.bootMode === '9p' ? 'active' : ''}`}
+                      onClick={() => setConfig({ ...config, bootMode: '9p' })}
+                    >
+                      NETWORK (9p)
+                    </button>
+                  </div>
+                </div>
+
+                <div className="setting-group">
+                  <label>HARDWARE_OVERVIEW</label>
+                  <div className="source-info">
+                    {config.bootMode === 'iso' ? (
+                      <>
+                        <span className="source-tag">ARCH_32_ISO</span>
+                        <span className="source-path">/images/arch.iso</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="source-tag">9P_FILESYSTEM</span>
+                        <span className="source-path">/images/arch/fs.json</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <div className="setup-actions">
+                  <button className="start-btn" onClick={startV86}>
+                    <span className="btn-glitch">START_SYSTEM</span>
+                  </button>
+                </div>
+              </div>
+              
+              <div className="setup-footer">
+                <p>Verify hardware allocation before engine initialization.</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {(status === 'loading' || status === 'booting') && (
           <div className="vm-loading-overlay">
             <div className="spinner"></div>
             <p>{statusText}</p>
-            <p className="loading-hint">Loading V86 WASM engine and Arch ISO...</p>
+            <p className="loading-hint">Initializing V86 engine • Allocating {config.memorySize}MB RAM...</p>
           </div>
         )}
 
@@ -237,7 +345,7 @@ export const VmPanel: React.FC<VmPanelProps> = ({ onExit }) => {
         <div
           id="screen_container"
           ref={screenRef}
-          className="screen-container"
+          className={`screen-container ${status === 'ready' ? 'visible' : 'hidden'}`}
           tabIndex={0}
           onClick={focusScreen}
           style={{ outline: 'none' }}
