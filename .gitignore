@@ -16,4 +16,9 @@ __pycache__/
 .coverage
 *.log
 .vscode/
-*.isopublic/images/arch.iso
+*.iso
+*.wasm
+public/images/arch.iso
+public/images/seabios.bin
+public/images/vgabios.bin
+public/v86.wasm
