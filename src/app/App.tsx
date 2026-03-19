@@ -1,16 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { deriveObjectives } from '../features/simulator/objectives';
 import { completeInput, createInitialState, executeCommand, getPromptLabel } from '../features/simulator/engine';
 import type { Difficulty, GameState, ObjectiveId, TerminalLine } from '../features/simulator/types';
 import { fetchLeaderboard, fetchVisitorStats, registerVisit, startOfficialSession, submitOfficialReplay } from '../features/session/api';
 import { createVerificationBundle, getLocalForkConfig, getVerificationSummary } from '../features/session/buildIdentity';
 import { XtermTerminal } from '../features/terminal/XtermTerminal';
-import { VmPanel } from '../features/vm/VmPanel';
-import { MainGraph } from '../features/landing/MainGraph';
-import { AboutPage } from '../features/pages/AboutPage';
-import { HelpPage } from '../features/pages/HelpPage';
-import './App.css';
+import { VmPanel } from '../features/vm';
+import { MainGraph } from '../features/landing';
+import { AboutPage, HelpPage } from '../features/pages';
+import '../styles/app.css';
 import type { LeaderboardEntry, ReplayCommand, ReplaySubmission, SessionStartResponse, VisitorStatsResponse } from '../shared/replay';
 
 type TerminalMode = 'shell' | 'game';
@@ -98,6 +97,7 @@ export function App() {
   const forkConfig = getLocalForkConfig();
   const browserProfile = useMemo(() => detectBrowserProfile(), []);
   const objectives = deriveObjectives(state);
+  const navigate = useNavigate();
   const currentObjective = objectives.find((objective) => objective.id === state.currentObjective) ?? objectives[0];
   const completedObjectives = objectives.filter((objective) => objective.completed).length;
   const progress = objectives.length === 0 ? 0 : (completedObjectives / objectives.length) * 100;
@@ -624,75 +624,73 @@ export function App() {
   }
 
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<MainGraph onAddPlugin={handlePluginSubmit} />} />
-        <Route path="/about" element={<AboutPage />} />
-        <Route path="/help" element={<HelpPage />} />
-        <Route 
-          path="/vm" 
-          element={<VmPanel onExit={() => window.location.href = '/'} terminalMode="vm" />} 
-        />
-        <Route 
-          path="/simulations" 
-          element={
-            <div className="layout-horizontal">
-              <main className="app-shell">
-                <header className="app-header">
-                  <div className="header-left">
-                    <div className="logo-section" onClick={() => window.location.href = '/'}>
-                      <span className="logo-icon">▲</span>
-                      <h1 className="logo-text">ARCH_TRAINER // SIM</h1>
-                    </div>
-                  </div>
-                </header>
-
-                <div className="terminal-container">
-                  <XtermTerminal
-                    lines={terminalLines}
-                    prompt={prompt}
-                    showPrompt={!isBusy}
-                    inputMode="text"
-                    theme={uiSettings.theme}
-                    onTabComplete={(buffer) => completeInput(state, buffer)}
-                    onSubmit={handleTerminalSubmit}
-                  />
-                </div>
-              </main>
-
-              <aside className="terminal-sidebar">
-                <div className="sidebar-header">
-                  <h3>SYSTEM_STATUS</h3>
-                  <div className="status-badge">ONLINE</div>
-                </div>
-                
-                <div className="sidebar-section">
-                  <h4>CURRENT_TASK</h4>
-                  <p>{state.currentObjective || 'INITIALIZING...'}</p>
-                </div>
-
-                <div className="sidebar-section">
-                  <h4>INSTALL_STATUS</h4>
-                  <div className="status-grid">
-                    <div className={`status-item ${state.install.rootMounted ? 'complete' : ''}`}>ROOT_MNT</div>
-                    <div className={`status-item ${state.install.packagesInstalled ? 'complete' : ''}`}>PKGS_INST</div>
-                    <div className={`status-item ${state.install.grubInstalled ? 'complete' : ''}`}>BOOTLOADER</div>
-                    <div className={`status-item ${state.install.inChroot ? 'complete' : ''}`}>CHROOT</div>
+    <Routes>
+      <Route path="/" element={<MainGraph onAddPlugin={handlePluginSubmit} />} />
+      <Route path="/about" element={<AboutPage />} />
+      <Route path="/help" element={<HelpPage />} />
+      <Route 
+        path="/vm" 
+        element={<VmPanel onExit={() => navigate('/')} terminalMode="vm" />} 
+      />
+      <Route 
+        path="/simulations" 
+        element={
+          <div className="layout-horizontal">
+            <main className="app-shell">
+              <header className="app-header">
+                <div className="header-left">
+                  <div className="logo-section" onClick={() => navigate('/')}>
+                    <span className="logo-icon">▲</span>
+                    <h1 className="logo-text">ARCH_TRAINER // SIM</h1>
                   </div>
                 </div>
+              </header>
 
-                <div className="sidebar-footer">
-                  <button className="exit-btn" onClick={() => window.location.href = '/'}>
-                    EXIT TO MAP
-                  </button>
+              <div className="terminal-container">
+                <XtermTerminal
+                  lines={terminalLines}
+                  prompt={prompt}
+                  showPrompt={!isBusy}
+                  inputMode="text"
+                  theme={uiSettings.theme}
+                  onTabComplete={(buffer) => completeInput(state, buffer)}
+                  onSubmit={handleTerminalSubmit}
+                />
+              </div>
+            </main>
+
+            <aside className="terminal-sidebar">
+              <div className="sidebar-header">
+                <h3>SYSTEM_STATUS</h3>
+                <div className="status-badge">ONLINE</div>
+              </div>
+              
+              <div className="sidebar-section">
+                <h4>CURRENT_TASK</h4>
+                <p>{state.currentObjective || 'INITIALIZING...'}</p>
+              </div>
+
+              <div className="sidebar-section">
+                <h4>INSTALL_STATUS</h4>
+                <div className="status-grid">
+                  <div className={`status-item ${state.install.rootMounted ? 'complete' : ''}`}>ROOT_MNT</div>
+                  <div className={`status-item ${state.install.packagesInstalled ? 'complete' : ''}`}>PKGS_INST</div>
+                  <div className={`status-item ${state.install.grubInstalled ? 'complete' : ''}`}>BOOTLOADER</div>
+                  <div className={`status-item ${state.install.inChroot ? 'complete' : ''}`}>CHROOT</div>
                 </div>
-              </aside>
-            </div>
-          } 
-        />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </BrowserRouter>
+              </div>
+
+              <div className="sidebar-footer">
+                <button className="exit-btn" onClick={() => navigate('/')}>
+                  EXIT TO MAP
+                </button>
+              </div>
+            </aside>
+          </div>
+        } 
+      />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   );
 }
 
