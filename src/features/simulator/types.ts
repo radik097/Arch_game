@@ -24,6 +24,13 @@ export interface TerminalLine {
   text: string;
 }
 
+export interface ParsedCommand {
+  command: string;
+  args: string[];
+  flags: Record<string, string | boolean>;
+  raw: string;
+}
+
 export interface Objective {
   id: ObjectiveId;
   title: string;
@@ -90,6 +97,8 @@ export interface InstallState {
   grubConfigGenerated: boolean;
   unmounted: boolean;
   rebooted: boolean;
+  mounted: Record<string, string>; // mountpoint -> device
+  installedPackages: string[];
 }
 
 export interface RuntimeContext {
