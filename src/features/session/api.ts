@@ -30,11 +30,20 @@ export async function fetchLeaderboard(difficulty?: string): Promise<Leaderboard
   return (await response.json()) as LeaderboardEntry[];
 }
 
+const DUMMY_STATS: VisitorStatsResponse = {
+  totalVisits: 0,
+  uniqueVisitors: 0,
+  lastVisitAt: null,
+  counted: false,
+};
+
 export async function registerVisit(payload: VisitorRegistrationRequest): Promise<VisitorStatsResponse> {
+  if (!IS_LOCAL_HOST && !import.meta.env.VITE_API_URL) return DUMMY_STATS;
   return requestJson<VisitorStatsResponse>('/api/visits', payload);
 }
 
 export async function fetchVisitorStats(): Promise<VisitorStatsResponse> {
+  if (!IS_LOCAL_HOST && !import.meta.env.VITE_API_URL) return DUMMY_STATS;
   const response = await fetch(`${API_BASE_URL}/api/visits`);
   if (!response.ok) {
     throw new Error(`Visitor stats request failed with status ${response.status}`);
