@@ -22,6 +22,7 @@ export const VmPanel: React.FC<VmPanelProps> = ({ onExit }) => {
   });
   const [statusText, setStatusText] = useState('SYSTEM_IDLE');
   const [memUsage, setMemUsage] = useState('0');
+  const [isFocused, setIsFocused] = useState(false);
 
   // Focus the screen container to enable keyboard input
   const focusScreen = useCallback(() => {
@@ -366,9 +367,11 @@ export const VmPanel: React.FC<VmPanelProps> = ({ onExit }) => {
           <div
             id="screen_container"
             ref={screenRef}
-            className={`screen-container ${status === 'ready' ? 'visible' : 'hidden'}`}
+            className={`screen-container ${status === 'ready' ? 'visible' : 'hidden'} ${isFocused ? 'focused' : ''}`}
             tabIndex={0}
             onClick={focusScreen}
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => setIsFocused(false)}
             style={{ outline: 'none' }}
           >
             <div style={{ whiteSpace: 'pre', font: '14px monospace', lineHeight: '14px' }}></div>
@@ -379,9 +382,21 @@ export const VmPanel: React.FC<VmPanelProps> = ({ onExit }) => {
             <aside className="simulation-sidebar vm-sidebar">
               <div className="sidebar-header">
                 <h3>VM_HARDWARE_METRICS</h3>
-                <div className="status-badge">ACTIVE</div>
+                <div className={`status-badge ${isFocused ? 'active-focus' : ''}`}>
+                  {isFocused ? 'FOCUSED' : 'ACTIVE'}
+                </div>
               </div>
               
+              <div className="sidebar-section">
+                <h4>INPUT_DEVICE</h4>
+                <button 
+                  className={`vm-btn focus-btn ${isFocused ? 'active' : ''}`}
+                  onClick={focusScreen}
+                >
+                  {isFocused ? 'TERMINAL_FOCUSED' : 'FOCUS_TERMINAL_INPUT'}
+                </button>
+              </div>
+
               <div className="sidebar-section">
                 <h4>RESOURCE_USAGE</h4>
                 <div className="metrics-list">
