@@ -46,14 +46,16 @@ export const VmPanel: React.FC<VmPanelProps> = ({ onExit }) => {
 
         setStatusText('INITIALIZING_EMULATOR...');
 
+        const base = import.meta.env.BASE_URL;
+
         emulator = new V86Constructor({
-          wasm_path: '/v86.wasm',
+          wasm_path: `${base}v86.wasm`,
           memory_size: 512 * 1024 * 1024,
           vga_memory_size: 8 * 1024 * 1024,
           screen_container: screenRef.current,
-          bios: { url: '/images/seabios.bin' },
-          vga_bios: { url: '/images/vgabios.bin' },
-          cdrom: { url: '/images/arch.iso', async: true, size: 834666496 },
+          bios: { url: `${base}images/seabios.bin` },
+          vga_bios: { url: `${base}images/vgabios.bin` },
+          cdrom: { url: `${base}images/arch.iso`, async: true, size: 834666496 },
           autostart: true,
           disable_keyboard: false,
           disable_mouse: false,

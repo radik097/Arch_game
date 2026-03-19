@@ -10,7 +10,7 @@ import type {
 } from '../../shared/replay';
 
 const IS_LOCAL_HOST = typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname);
-const API_BASE_URL = IS_LOCAL_HOST ? 'http://localhost:8787' : '';
+const API_BASE_URL = IS_LOCAL_HOST ? 'http://localhost:8787' : (import.meta.env.VITE_API_URL || '');
 
 export async function startOfficialSession(payload: SessionStartRequest): Promise<SessionStartResponse> {
   return requestJson<SessionStartResponse>('/api/start-session', payload);
