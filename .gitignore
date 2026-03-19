@@ -17,8 +17,8 @@ __pycache__/
 *.log
 .vscode/
 *.iso
-*.wasm
 public/images/arch.iso
-public/images/seabios.bin
-public/images/vgabios.bin
-public/v86.wasm
+# Allow small V86 binaries
+!public/images/seabios.bin
+!public/images/vgabios.bin
+!public/v86.wasm
