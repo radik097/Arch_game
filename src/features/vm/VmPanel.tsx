@@ -322,7 +322,18 @@ export const VmPanel: React.FC<VmPanelProps> = ({ onExit }) => {
                 </div>
 
                 <div className="setup-actions">
-                  <button className="start-btn" onClick={startV86}>
+                  {config.bootMode === '9p' && (
+                    <div className="asset-warning">
+                      ⚠️ FS_NETWORK_MODE requires /images/arch/fs.json (Not Found). 
+                      Please use CD-ROM mode unless you have the custom filesystem assets.
+                    </div>
+                  )}
+                  <button 
+                    className="start-btn" 
+                    onClick={startV86}
+                    disabled={config.bootMode === '9p'}
+                    title={config.bootMode === '9p' ? 'Assets missing for 9p boot' : ''}
+                  >
                     <span className="btn-glitch">START_SYSTEM</span>
                   </button>
                 </div>
@@ -351,22 +362,84 @@ export const VmPanel: React.FC<VmPanelProps> = ({ onExit }) => {
           </div>
         )}
 
-        <div
-          id="screen_container"
-          ref={screenRef}
-          className={`screen-container ${status === 'ready' ? 'visible' : 'hidden'}`}
-          tabIndex={0}
-          onClick={focusScreen}
-          style={{ outline: 'none' }}
-        >
-          <div style={{ whiteSpace: 'pre', font: '14px monospace', lineHeight: '14px' }}></div>
-          <canvas style={{ display: 'none' }}></canvas>
+        <div className="vm-layout-horizontal">
+          <div
+            id="screen_container"
+            ref={screenRef}
+            className={`screen-container ${status === 'ready' ? 'visible' : 'hidden'}`}
+            tabIndex={0}
+            onClick={focusScreen}
+            style={{ outline: 'none' }}
+          >
+            <div style={{ whiteSpace: 'pre', font: '14px monospace', lineHeight: '14px' }}></div>
+            <canvas style={{ display: 'none' }}></canvas>
+          </div>
+
+          {(status === 'ready' || status === 'booting') && (
+            <aside className="simulation-sidebar vm-sidebar">
+              <div className="sidebar-header">
+                <h3>VM_HARDWARE_METRICS</h3>
+                <div className="status-badge">ACTIVE</div>
+              </div>
+              
+              <div className="sidebar-section">
+                <h4>RESOURCE_USAGE</h4>
+                <div className="metrics-list">
+                  <div className="metric-item">
+                    <label>CPU_LOAD</label>
+                    <div className="meter-bar">
+                      <div className="meter-fill" style={{ width: `${Math.floor(Math.random() * 15) + (status === 'ready' ? 5 : 45)}%` }}></div>
+                    </div>
+                  </div>
+                  <div className="metric-item">
+                    <label>RAM_ALLOCATED</label>
+                    <div className="meter-bar">
+                      <div className="meter-fill" style={{ width: `${Math.min(100, (config.memorySize / 8192) * 100)}%` }}></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="sidebar-section">
+                <h4>VM_SPECIFICATIONS</h4>
+                <div className="hardware-grid">
+                  <div className="hw-item">
+                    <span className="hw-label">ARCH</span>
+                    <span className="hw-value">i686</span>
+                  </div>
+                  <div className="hw-item">
+                    <span className="hw-label">MEM</span>
+                    <span className="hw-value">{config.memorySize}MB</span>
+                  </div>
+                  <div className="hw-item">
+                    <span className="hw-label">BOOT</span>
+                    <span className="hw-value">{config.bootMode.toUpperCase()}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="sidebar-section">
+                <h4>V86_TASKS</h4>
+                <div className="status-grid">
+                  <div className={`status-item complete`}>INIT_ENGINE</div>
+                  <div className={`status-item ${status === 'ready' ? 'complete' : ''}`}>LOAD_KERNEL</div>
+                  <div className={`status-item`}>USER_LOGIN</div>
+                </div>
+              </div>
+
+              <div className="sidebar-footer">
+                <button className="vm-btn" onClick={handleSaveState}>SAVE_STATE</button>
+                <div style={{ height: '8px' }}></div>
+                <button className="vm-btn" onClick={handleRestoreClick}>RESTORE_STATE</button>
+              </div>
+            </aside>
+          )}
         </div>
       </main>
 
       <footer className="vm-footer">
         <div className="keyboard-hint">Click screen to type • Buttons return focus to VM</div>
-        <div className="stats">CPU: i686 | RAM: 512MB | ISO: arch32</div>
+        <div className="stats">CPU: i686 | RAM: {config.memorySize}MB | MODE: {config.bootMode.toUpperCase()}</div>
       </footer>
     </div>
   );
