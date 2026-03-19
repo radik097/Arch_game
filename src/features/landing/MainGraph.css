@@ -1,0 +1,106 @@
+.graph-container {
+  width: 100vw;
+  height: 100vh;
+  background: radial-gradient(circle at center, #1a1a1a 0%, #0d0d0d 100%);
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.graph-overlay {
+  position: absolute;
+  top: 40px;
+  left: 40px;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.graph-overlay h1 {
+  font-family: 'Outfit', sans-serif;
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: 0.2rem;
+  margin: 0;
+  text-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+}
+
+.graph-overlay p {
+  font-family: 'Inter', sans-serif;
+  color: #888;
+  margin: 10px 0;
+  letter-spacing: 0.1rem;
+}
+
+.graph-svg {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  cursor: crosshair;
+}
+
+.node-group {
+  cursor: grab;
+  transition: filter 0.2s ease;
+}
+
+.node-group:active {
+  cursor: grabbing;
+}
+
+.node-rect {
+  fill: rgba(30, 30, 30, 0.9);
+  stroke: rgba(255, 255, 255, 0.1);
+  stroke-width: 1;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.node-group:hover .node-rect {
+  stroke: rgba(255, 255, 255, 0.5);
+  fill: rgba(45, 45, 45, 0.95);
+  filter: url(#glow);
+}
+
+.node-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 600;
+  fill: #eee;
+  pointer-events: none;
+  text-transform: uppercase;
+  letter-spacing: 0.1ch;
+}
+
+.socket {
+  fill: #444;
+  stroke: #222;
+  transition: all 0.2s ease;
+}
+
+.node-group:hover .socket {
+  fill: #fff;
+  box-shadow: 0 0 10px #fff;
+}
+
+.core .node-rect { stroke-color: #5096dc; }
+.action .node-rect { stroke-color: #f1c40f; }
+.info .node-rect { stroke-color: #2ecc71; }
+.plugin .node-rect { stroke-color: #e74c3c; }
+
+.core .node-label { fill: #70b0e0; }
+.action .node-label { fill: #f9e79f; }
+.info .node-label { fill: #a9dfbf; }
+.plugin .node-label { fill: #f5b041; }
+
+.connector-line {
+  stroke: rgba(255, 255, 255, 0.08);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 4;
+  animation: dash 20s linear infinite;
+}
+
+@keyframes dash {
+  from { stroke-dashoffset: 200; }
+  to { stroke-dashoffset: 0; }
+}

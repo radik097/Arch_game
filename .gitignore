@@ -16,3 +16,4 @@ __pycache__/
 .coverage
 *.log
 .vscode/
+*.isopublic/images/arch.iso

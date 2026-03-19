@@ -598,7 +598,7 @@ export function App() {
   const hintText = currentObjective
     ? `${currentObjective.title}: ${state.lastTeachingNote?.ru ?? state.lastTeachingNote?.en ?? currentObjective.detail}`
     : null;
-  const replayHashPreview = activeRun?.mode === 'official' ? activeRun.lastHash.slice(0, 8) : activeRun?.commands.at(-1)?.hash.slice(0, 8) ?? 'local';
+  const replayHashPreview = activeRun?.mode === 'official' ? activeRun.lastHash.slice(0, 8) : activeRun?.commands[activeRun.commands.length - 1]?.hash.slice(0, 8) ?? 'local';
   const themeOptions: Array<{ id: TerminalThemeId; label: string }> = [
     { id: 'emerald', label: 'Emerald CRT' },
     { id: 'amber', label: 'Amber Phosphor' },
@@ -668,17 +668,16 @@ export function App() {
                 
                 <div className="sidebar-section">
                   <h4>CURRENT_TASK</h4>
-                  <p>{state.currentStep || 'INITIALIZING...'}</p>
+                  <p>{state.currentObjective || 'INITIALIZING...'}</p>
                 </div>
 
                 <div className="sidebar-section">
-                  <h4>INSTALLED_PACKAGES</h4>
-                  <div className="package-list">
-                    {state.installedPackages.map(p => (
-                      <div key={p} className="package-item">
-                        <span className="pkg-icon">📦</span> {p}
-                      </div>
-                    ))}
+                  <h4>INSTALL_STATUS</h4>
+                  <div className="status-grid">
+                    <div className={`status-item ${state.install.rootMounted ? 'complete' : ''}`}>ROOT_MNT</div>
+                    <div className={`status-item ${state.install.packagesInstalled ? 'complete' : ''}`}>PKGS_INST</div>
+                    <div className={`status-item ${state.install.grubInstalled ? 'complete' : ''}`}>BOOTLOADER</div>
+                    <div className={`status-item ${state.install.inChroot ? 'complete' : ''}`}>CHROOT</div>
                   </div>
                 </div>
 

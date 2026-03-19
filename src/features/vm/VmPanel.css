@@ -1,0 +1,147 @@
+.vm-panel-container {
+  width: 100vw;
+  height: 100vh;
+  background: #000;
+  color: #0f0;
+  display: flex;
+  flex-direction: column;
+  font-family: 'JetBrains Mono', monospace;
+  overflow: hidden;
+}
+
+.vm-header {
+  height: 50px;
+  background: #111;
+  border-bottom: 1px solid #333;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 20px;
+}
+
+.vm-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #444;
+}
+
+.status-dot.pulse {
+  background: #f1c40f;
+  box-shadow: 0 0 10px #f1c40f;
+  animation: pulse 1.5s infinite;
+}
+
+.status-dot.ready {
+  background: #2ecc71;
+  box-shadow: 0 0 10px #2ecc71;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.3; }
+  100% { opacity: 1; }
+}
+
+.status-text {
+  font-size: 11px;
+  color: #ccc;
+  letter-spacing: 0.1ch;
+}
+
+.vm-controls {
+  display: flex;
+  gap: 10px;
+}
+
+.vm-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid #444;
+  color: #fff;
+  padding: 6px 14px;
+  font-size: 11px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.vm-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.vm-btn.exit {
+  background: rgba(231, 76, 60, 0.1);
+  border-color: #e74c3c;
+  color: #e74c3c;
+}
+
+.vm-main {
+  flex: 1;
+  position: relative;
+  display: grid;
+  grid-template-rows: 1fr 200px;
+}
+
+.vm-loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.95);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 100;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #333;
+  border-top: 4px solid #fff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 20px;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+#screen-container {
+  overflow: auto;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #000;
+  border-bottom: 1px solid #222;
+}
+
+#v86-screen {
+  font-size: 14px;
+}
+
+.vm-footer {
+  height: 30px;
+  background: #111;
+  border-top: 1px solid #333;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 20px;
+  font-size: 10px;
+  color: #666;
+}
+
+.stats {
+  color: #5096dc;
+}

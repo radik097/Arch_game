@@ -1,0 +1,119 @@
+.page-container {
+  min-height: 100vh;
+  background: radial-gradient(circle at top right, #1a1a1a 0%, #080808 100%);
+  color: #eee;
+  font-family: 'Inter', sans-serif;
+  padding: 40px;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 60px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  padding-bottom: 20px;
+}
+
+.page-header h1 {
+  font-family: 'Outfit', sans-serif;
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: 0.15rem;
+  margin: 0;
+  background: linear-gradient(to right, #fff, #888);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.back-btn {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #888;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  transition: all 0.2s ease;
+}
+
+.back-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.page-content {
+  max-width: 900px;
+  margin: 0 auto;
+  width: 100%;
+  display: grid;
+  gap: 30px;
+}
+
+.info-card {
+  background: rgba(20, 20, 20, 0.4);
+  backdrop-filter: blur(10px);
+  padding: 30px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.03);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.info-card h2 {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 1.1rem;
+  color: #5096dc;
+  margin-bottom: 20px;
+  letter-spacing: 0.1ch;
+}
+
+.info-card p {
+  line-height: 1.6;
+  color: #ccc;
+  font-size: 1.05rem;
+}
+
+.tech-specs ul {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+}
+
+.tech-specs li::before {
+  content: "»";
+  color: #5096dc;
+  margin-right: 10px;
+}
+
+.help-steps {
+  padding-left: 20px;
+  line-height: 2;
+  color: #ccc;
+}
+
+.github-button {
+  display: inline-block;
+  background: #24292e;
+  color: #fff;
+  padding: 12px 24px;
+  border-radius: 6px;
+  text-decoration: none;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.2s ease;
+}
+
+.github-button:hover {
+  background: #2f363d;
+  border-color: rgba(255, 255, 255, 0.4);
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+}
