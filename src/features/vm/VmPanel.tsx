@@ -71,9 +71,9 @@ export const VmPanel: React.FC<VmPanelProps> = ({ onExit }) => {
           disable_keyboard: false,
           disable_mouse: false,
           hda: {
-            size: 10 * 1024 * 1024 * 1024, // 10GB
-            async: true
-          }
+            size: 2 * 1024 * 1024 * 1024, // 2GB (sensible for browser memory)
+          },
+          boot_order: "dca" // Boot from CD-ROM first
         };
 
         if (config.bootMode === 'iso') {
@@ -424,7 +424,7 @@ export const VmPanel: React.FC<VmPanelProps> = ({ onExit }) => {
                 <div className="hardware-grid">
                   <div className="hw-item">
                     <span className="hw-label">DISK</span>
-                    <span className="hw-value">10GB_VDA</span>
+                    <span className="hw-value">2GB_VDA</span>
                   </div>
                   <div className="hw-item">
                     <span className="hw-label">MEM</span>
