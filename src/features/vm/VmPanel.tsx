@@ -45,11 +45,24 @@ export const VmPanel: React.FC<VmPanelProps> = ({ onExit }) => {
       try {
         setStatusText('LOADING_V86_ENGINE...');
 
-        const v86Module = await import('v86');
-        const V86Constructor = v86Module.V86 || v86Module.default;
+        const base = import.meta.env.BASE_URL || '/';
+
+        // Load V86 from static script instead of dynamic import for better GitHub Pages compatibility
+        if (!window.V86) {
+          await new Promise<void>((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = `${base}libv86.js`;
+            script.async = true;
+            script.onload = () => resolve();
+            script.onerror = () => reject(new Error('Failed to load libv86.js script'));
+            document.body.appendChild(script);
+          });
+        }
+
+        const V86Constructor = window.V86;
 
         if (!V86Constructor) {
-          throw new Error('V86 constructor not found in module');
+          throw new Error('V86 constructor not found in global scope');
         }
 
         if (!screenRef.current) {
@@ -57,8 +70,6 @@ export const VmPanel: React.FC<VmPanelProps> = ({ onExit }) => {
         }
 
         setStatusText('INITIALIZING_EMULATOR...');
-
-        const base = import.meta.env.BASE_URL;
 
         const options: any = {
           wasm_path: `${base}v86.wasm`,
@@ -70,6 +81,9 @@ export const VmPanel: React.FC<VmPanelProps> = ({ onExit }) => {
           autostart: true,
           disable_keyboard: false,
           disable_mouse: false,
+          hda: {
+            size: 2 * 1024 * 1024 * 1024, // 2GB
+          },
           boot_order: "dca"
         };
 
