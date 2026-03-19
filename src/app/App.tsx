@@ -1,10 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { deriveObjectives } from '../features/simulator/objectives';
 import { completeInput, createInitialState, executeCommand, getPromptLabel } from '../features/simulator/engine';
 import type { Difficulty, GameState, ObjectiveId, TerminalLine } from '../features/simulator/types';
 import { fetchLeaderboard, fetchVisitorStats, registerVisit, startOfficialSession, submitOfficialReplay } from '../features/session/api';
 import { createVerificationBundle, getLocalForkConfig, getVerificationSummary } from '../features/session/buildIdentity';
 import { XtermTerminal } from '../features/terminal/XtermTerminal';
+import { VmPanel } from '../features/vm/VmPanel';
+import { MainGraph } from '../features/landing/MainGraph';
+import { AboutPage } from '../features/pages/AboutPage';
+import { HelpPage } from '../features/pages/HelpPage';
+import './App.css';
 import type { LeaderboardEntry, ReplayCommand, ReplaySubmission, SessionStartResponse, VisitorStatsResponse } from '../shared/replay';
 
 type TerminalMode = 'shell' | 'game';
@@ -599,429 +605,95 @@ export function App() {
     { id: 'ice', label: 'Ice Console' },
   ];
 
+  async function handlePluginSubmit(url: string) {
+    console.log(`Loading plugin from: ${url}`);
+    try {
+      const response = await fetch(url);
+      if (response.ok) {
+        const data = await response.json();
+        appendLines([
+          createLine('system', `[PLUGIN_LOADED] ${data.name || 'Custom Mod'}`),
+          createLine('info', `Source: ${url}`),
+          ...(data.description ? [createLine('info', data.description)] : [])
+        ], setTerminalLines);
+      }
+    } catch (e) {
+      console.error('Failed to load plugin', e);
+      appendLines([createLine('error', `Failed to load plugin from ${url}`)], setTerminalLines);
+    }
+  }
+
   return (
-    <main className={`app-shell theme-${uiSettings.theme}`}>
-      <section className="terminal-stage bash-stage">
-        <div className="terminal-frame">
-          <header className="terminal-topbar">
-            <div className="topbar-brand">
-              <span className="topbar-title">ARCH TRAINER</span>
-              <span className="topbar-divider">|</span>
-              <span className={`topbar-difficulty difficulty-${state.difficulty}`}>{state.difficulty.toUpperCase()}</span>
-              <span className="topbar-divider">|</span>
-              <span className="topbar-replay">#{replayHashPreview}</span>
-            </div>
-
-            <div className="topbar-center">
-              <div className="terminal-timer" aria-live="polite">
-                <span className="terminal-timer-label">{timerLabel}</span>
-                <strong className="terminal-timer-value">{formatDurationMs(elapsedMs)}</strong>
-              </div>
-              <div className="topbar-progress">
-                <span>{`${completedObjectives}/${objectives.length}`}</span>
-                <div className="topbar-progress-track">
-                  <div className="topbar-progress-bar" style={{ width: `${progress}%` }} />
-                </div>
-              </div>
-            </div>
-
-            <div className="topbar-actions">
-              <button
-                className="topbar-icon-button"
-                onClick={() => {
-                  void loadLeaderboard();
-                }}
-                type="button"
-              >
-                LB
-              </button>
-              {hintText ? (
-                <button
-                  className={`topbar-icon-button${showHint ? ' is-active' : ''}`}
-                  onClick={() => setShowHint((current) => !current)}
-                  type="button"
-                >
-                  ?
-                </button>
-              ) : null}
-              <button
-                aria-expanded={menuOpen}
-                aria-label="Toggle terminal menu"
-                className={`terminal-menu-toggle${menuOpen ? ' is-open' : ''}`}
-                onClick={() => setMenuOpen((current) => !current)}
-                type="button"
-              >
-                <span />
-                <span />
-                <span />
-              </button>
-            </div>
-          </header>
-
-          {showHint && hintText ? (
-            <div className="terminal-hint-bar">
-              <span className="terminal-hint-label">HINT</span>
-              <span className="terminal-hint-text">{hintText}</span>
-            </div>
-          ) : null}
-
-          {menuOpen ? (
-            <aside className="terminal-menu-panel">
-              <div className="menu-section">
-                <p className="menu-label">Run</p>
-                <label className="menu-field">
-                  <span>Mode</span>
-                  <select
-                    value={uiSettings.preferredDifficulty}
-                    onChange={(event) => {
-                      const difficulty = parseDifficultyToken(event.target.value);
-                      if (!difficulty) {
-                        return;
-                      }
-                      setUiSettings((current) => ({ ...current, preferredDifficulty: difficulty }));
-                    }}
-                  >
-                    <option value="beginner">beginner</option>
-                    <option value="experienced">experienced</option>
-                    <option value="expert">expert</option>
-                    <option value="god">god</option>
-                  </select>
-                </label>
-                <button
-                  className="menu-action"
-                  onClick={() => {
-                    if (mode !== 'shell') {
-                      appendLines([createLine('error', 'login first to start an installer session')], setTerminalLines);
-                      setMenuOpen(false);
-                      return;
-                    }
-                    void startRun(uiSettings.preferredDifficulty);
-                  }}
-                  type="button"
-                >
-                  Start Session
-                </button>
-                <button
-                  className="menu-action menu-action-secondary"
-                  onClick={() => {
-                    if (mode !== 'shell') {
-                      appendLines([createLine('error', 'finish or abort the active installer session first')], setTerminalLines);
-                      setMenuOpen(false);
-                      return;
-                    }
-                    void startRun(uiSettings.preferredDifficulty, true);
-                  }}
-                  type="button"
-                >
-                  Start Sandbox
-                </button>
-              </div>
-
-              <div className="menu-section">
-                <p className="menu-label">Theme</p>
-                <div className="theme-grid">
-                  {themeOptions.map((option) => (
-                    <button
-                      key={option.id}
-                      className={`theme-tile${uiSettings.theme === option.id ? ' is-active' : ''}`}
-                      onClick={() => setUiSettings((current) => ({ ...current, theme: option.id }))}
-                      type="button"
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="menu-section">
-                <p className="menu-label">Settings</p>
-                <label className="menu-toggle-row">
-                  <input
-                    checked={uiSettings.compactBoot}
-                    onChange={(event) => {
-                      const compactBoot = event.target.checked;
-                      setUiSettings((current) => ({ ...current, compactBoot }));
-                    }}
-                    type="checkbox"
-                  />
-                  <span>Compact boot log</span>
-                </label>
-                <button
-                  className="menu-action menu-action-secondary"
-                  onClick={() => {
-                    appendLines(createHelpLines(), setTerminalLines);
-                    setMenuOpen(false);
-                  }}
-                  type="button"
-                >
-                  Print Help
-                </button>
-              </div>
-            </aside>
-          ) : null}
-
-          <div className="terminal-workspace">
-            <div className="terminal-main-pane">
-              <XtermTerminal
-                lines={terminalLines}
-                prompt={prompt}
-                showPrompt={!isBusy}
-                inputMode="text"
-                theme={uiSettings.theme}
-                onTabComplete={(buffer) => completeInput(state, buffer)}
-                onSubmit={handleTerminalSubmit}
-              />
-            </div>
-
-            <aside className="terminal-sidebar">
-              <section className="sidebar-section">
-                <p className="sidebar-heading">Installation Log</p>
-                <div className="sidebar-steps">
-                  {objectives.map((objective) => {
-                    const isCurrent = objective.id === state.currentObjective && !objective.completed;
-                    return (
-                      <div className={`sidebar-step${objective.completed ? ' is-done' : isCurrent ? ' is-current' : ''}`} key={objective.id}>
-                        <span className="sidebar-step-icon">{objective.completed ? '✓' : isCurrent ? '▶' : '○'}</span>
-                        <span>{objective.title}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </section>
-
-              <section className="sidebar-section">
-                <p className="sidebar-heading">State</p>
-                <div className="sidebar-stats">
-                  {buildStateRows(state).map((row) => (
-                    <div className="sidebar-stat-row" key={row.label}>
-                      <span>{row.label}</span>
-                      <strong className={row.status}>{row.value}</strong>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<MainGraph onAddPlugin={handlePluginSubmit} />} />
+        <Route path="/about" element={<AboutPage />} />
+        <Route path="/help" element={<HelpPage />} />
+        <Route 
+          path="/vm" 
+          element={<VmPanel onExit={() => window.location.href = '/'} terminalMode="vm" />} 
+        />
+        <Route 
+          path="/simulations" 
+          element={
+            <div className="layout-horizontal">
+              <main className="app-shell">
+                <header className="app-header">
+                  <div className="header-left">
+                    <div className="logo-section" onClick={() => window.location.href = '/'}>
+                      <span className="logo-icon">▲</span>
+                      <h1 className="logo-text">ARCH_TRAINER // SIM</h1>
                     </div>
-                  ))}
-                </div>
-              </section>
+                  </div>
+                </header>
 
-              <section className="sidebar-section">
-                <p className="sidebar-heading">Replay</p>
-                <div className="sidebar-stats">
-                  <div className="sidebar-stat-row">
-                    <span>Mode</span>
-                    <strong className="status-active">{runSummary.mode}</strong>
-                  </div>
-                  <div className="sidebar-stat-row">
-                    <span>Commands</span>
-                    <strong className="status-active">{activeRun?.commands.length ?? 0}</strong>
-                  </div>
-                  <div className="sidebar-stat-row">
-                    <span>Hash</span>
-                    <strong className="status-idle">{replayHashPreview}</strong>
-                  </div>
-                  <div className="sidebar-stat-row">
-                    <span>Verdict</span>
-                    <strong className={runSummary.submissionState === 'accepted' ? 'status-good' : runSummary.submissionState === 'rejected' ? 'status-bad' : 'status-idle'}>
-                      {runSummary.submissionState}
-                    </strong>
-                  </div>
+                <div className="terminal-container">
+                  <XtermTerminal
+                    lines={terminalLines}
+                    prompt={prompt}
+                    showPrompt={!isBusy}
+                    inputMode="text"
+                    theme={uiSettings.theme}
+                    onTabComplete={(buffer) => completeInput(state, buffer)}
+                    onSubmit={handleTerminalSubmit}
+                  />
                 </div>
-              </section>
+              </main>
 
-              <section className="sidebar-section">
-                <p className="sidebar-heading">Checkpoints</p>
-                <div className="sidebar-theme-list">
-                  {checkpoints.length === 0 ? <span className="status-idle">No checkpoints yet</span> : null}
-                  {checkpoints.map((checkpoint) => (
-                    <button
-                      key={checkpoint.id}
-                      className="sidebar-theme-button"
-                      onClick={() => restoreCheckpoint(checkpoint, setState, setTerminalLines, setMode, setRunSummary, activeRunRef, appendedHistoryRef)}
-                      type="button"
-                    >
-                      Restore: {checkpoint.title}
-                    </button>
-                  ))}
+              <aside className="terminal-sidebar">
+                <div className="sidebar-header">
+                  <h3>SYSTEM_STATUS</h3>
+                  <div className="status-badge">ONLINE</div>
                 </div>
-              </section>
+                
+                <div className="sidebar-section">
+                  <h4>CURRENT_TASK</h4>
+                  <p>{state.currentStep || 'INITIALIZING...'}</p>
+                </div>
 
-              <section className="sidebar-section">
-                <p className="sidebar-heading">Visitors</p>
-                <div className="sidebar-stats">
-                  <div className="sidebar-stat-row">
-                    <span>Total visits</span>
-                    <strong className="status-active">{visitorStats?.totalVisits ?? '--'}</strong>
-                  </div>
-                  <div className="sidebar-stat-row">
-                    <span>Unique visitors</span>
-                    <strong className="status-good">{visitorStats?.uniqueVisitors ?? '--'}</strong>
-                  </div>
-                  <div className="sidebar-stat-row">
-                    <span>Last seen</span>
-                    <strong className="status-idle">{formatVisitTimestamp(visitorStats?.lastVisitAt ?? null)}</strong>
+                <div className="sidebar-section">
+                  <h4>INSTALLED_PACKAGES</h4>
+                  <div className="package-list">
+                    {state.installedPackages.map(p => (
+                      <div key={p} className="package-item">
+                        <span className="pkg-icon">📦</span> {p}
+                      </div>
+                    ))}
                   </div>
                 </div>
-              </section>
 
-              <section className="sidebar-section">
-                <p className="sidebar-heading">Themes</p>
-                <div className="sidebar-theme-list">
-                  {themeOptions.map((option) => (
-                    <button
-                      key={option.id}
-                      className={`sidebar-theme-button${uiSettings.theme === option.id ? ' is-active' : ''}`}
-                      onClick={() => setUiSettings((current) => ({ ...current, theme: option.id }))}
-                      type="button"
-                    >
-                      {option.label}
-                    </button>
-                  ))}
+                <div className="sidebar-footer">
+                  <button className="exit-btn" onClick={() => window.location.href = '/'}>
+                    EXIT TO MAP
+                  </button>
                 </div>
-              </section>
-            </aside>
-          </div>
-        </div>
-
-        {welcomeOpen ? (
-          <div className="welcome-overlay" role="dialog" aria-modal="true">
-            <div className="welcome-card">
-              <h2>Arch Trainer</h2>
-              <p>Arch Linux Installation Simulator</p>
-              <p>Choose your entry mode.</p>
-              <div className="tutorial-actions">
-                <button
-                  className="menu-action"
-                  onClick={() => {
-                    setWelcomeOpen(false);
-                    setTutorialOpen(true);
-                    setTutorialStep(0);
-                  }}
-                  type="button"
-                >
-                  Play Tutorial
-                </button>
-                <button
-                  className="menu-action"
-                  onClick={() => {
-                    window.localStorage.setItem(TUTOR_KEY, '1');
-                    setWelcomeOpen(false);
-                    setTutorialOpen(false);
-                    void startRun(uiSettings.preferredDifficulty);
-                  }}
-                  type="button"
-                >
-                  Start Training
-                </button>
-                <button
-                  className="menu-action menu-action-secondary"
-                  onClick={() => {
-                    window.localStorage.setItem(TUTOR_KEY, '1');
-                    setWelcomeOpen(false);
-                    setTutorialOpen(false);
-                    void startRun(uiSettings.preferredDifficulty, true);
-                  }}
-                  type="button"
-                >
-                  Sandbox
-                </button>
-              </div>
+              </aside>
             </div>
-          </div>
-        ) : null}
-
-        {tutorialOpen ? (
-          <div className="tutorial-overlay" role="dialog" aria-modal="true">
-            <div className="tutorial-card">
-              {tutorialStep === 0 ? (
-                <>
-                  <h2>Welcome to Arch Trainer</h2>
-                  <p>Arch Trainer is a safe simulator for learning the logic of a real Arch Linux install.</p>
-                  <p>Nothing here touches your real system or disks.</p>
-                  <p>Use this to practice before trying on a VM or hardware.</p>
-                </>
-              ) : null}
-
-              {tutorialStep === 1 ? (
-                <>
-                  <h2>How to use the site</h2>
-                  <p>Type commands in the terminal and press Enter.</p>
-                  <p>Use <strong>Start Training</strong> for the full guided install path.</p>
-                  <p>Use <strong>Sandbox</strong> to experiment without leaderboard expectations.</p>
-                  <p>Use <strong>LB</strong> to check leaderboard, <strong>?</strong> to toggle hint, and menu for settings/theme.</p>
-                </>
-              ) : null}
-
-              {tutorialStep === 2 ? (
-                <>
-                  <h2>Core simulation rule</h2>
-                  <p>Commands affect simulated system state.</p>
-                  <p>If you skip steps, later commands can fail (for example mount/format/chroot order).</p>
-                  <p>Use the Installation Log and State panels to understand what changed.</p>
-                </>
-              ) : null}
-
-              {tutorialStep === 3 ? (
-                <>
-                  <h2>First command</h2>
-                  <p>Try typing:</p>
-                  <p><strong>lsblk</strong></p>
-                  <p>This shows detected disks and partitions in the simulated Arch ISO environment.</p>
-                </>
-              ) : null}
-
-              {tutorialStep >= 4 ? (
-                <>
-                  <h2>Ready</h2>
-                  <p>You are now in the Arch ISO environment. Try exploring the system.</p>
-                </>
-              ) : null}
-
-              <div className="tutorial-actions">
-                {tutorialStep > 0 ? (
-                  <button className="menu-action menu-action-secondary" onClick={() => setTutorialStep((current) => Math.max(0, current - 1))} type="button">
-                    Back
-                  </button>
-                ) : null}
-                {tutorialStep < 3 ? (
-                  <button className="menu-action" onClick={() => setTutorialStep((current) => current + 1)} type="button">
-                    Next
-                  </button>
-                ) : null}
-                {tutorialStep === 3 ? (
-                  <button className="menu-action" onClick={() => setTutorialStep(4)} type="button">
-                    Skip step
-                  </button>
-                ) : null}
-                {tutorialStep >= 4 ? (
-                  <button
-                    className="menu-action"
-                    onClick={() => {
-                      window.localStorage.setItem(TUTOR_KEY, '1');
-                      setTutorialOpen(false);
-                    }}
-                    type="button"
-                  >
-                    Start Training
-                  </button>
-                ) : null}
-                {tutorialStep >= 4 ? (
-                  <button
-                    className="menu-action menu-action-secondary"
-                    onClick={() => {
-                      window.localStorage.setItem(TUTOR_KEY, '1');
-                      setTutorialOpen(false);
-                      void startRun(uiSettings.preferredDifficulty, true);
-                    }}
-                    type="button"
-                  >
-                    Start Sandbox
-                  </button>
-                ) : null}
-                <button className="menu-action menu-action-secondary" onClick={() => setTutorialOpen(false)} type="button">
-                  Hide Tutorial
-                </button>
-              </div>
-            </div>
-          </div>
-        ) : null}
-      </section>
-    </main>
+          } 
+        />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
 
