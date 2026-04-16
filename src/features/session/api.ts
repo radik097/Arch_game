@@ -8,6 +8,12 @@ import type {
   VisitorRegistrationRequest,
   VisitorStatsResponse,
 } from '../../shared/replay';
+import {
+  fetchSteamPriceOverview as fetchSteamPriceOverviewImpl,
+  type SteamPriceOverviewQuery,
+  type SteamPriceOverviewRequestOptions,
+  type SteamPriceOverviewResult,
+} from './steamMarket';
 
 const IS_LOCAL_HOST = typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname);
 const API_BASE_URL = IS_LOCAL_HOST ? 'http://localhost:8787' : (import.meta.env.VITE_API_URL || '');
@@ -60,6 +66,15 @@ export async function fetchStats(): Promise<StatsResponse> {
 
   return (await response.json()) as StatsResponse;
 }
+
+export async function fetchSteamPriceOverview(
+  query: SteamPriceOverviewQuery,
+  options?: SteamPriceOverviewRequestOptions,
+): Promise<SteamPriceOverviewResult> {
+  return fetchSteamPriceOverviewImpl(query, options);
+}
+
+export type { SteamPriceOverviewQuery, SteamPriceOverviewRequestOptions, SteamPriceOverviewResult };
 
 async function requestJson<T>(path: string, body: unknown): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {

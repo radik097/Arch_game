@@ -1,9 +1,9 @@
 {
   "version": 1,
-  "build_hash": "de0304fd81acbec48cbc138ebd03738950fa3b642db80c9c1962ebc64e958ebc",
-  "config_hash": "b204b905036f1470e2e9e27e7fd74941d3b7aa26194d13dab0914dac11593b0f",
-  "generated_at": "2026-04-16T05:59:17.898Z",
-  "build_id": "4e2795c110b1a22d",
+  "build_hash": "c9e1cbac2eb39849d961bdf10a965fa401708100118252b063d940de8829771d",
+  "config_hash": "bd4511d09462eb49e1b0e4e6931a4c689c01b57d2260267c0d7179c9b1fb0043",
+  "generated_at": "2026-04-16T06:30:54.591Z",
+  "build_id": "3782e6c9b0b3b340",
   "files_hashed": [
     "index.html",
     "package.json",
@@ -36,6 +36,7 @@
     "src\\features\\session\\EngineContext.tsx",
     "src\\features\\session\\api.ts",
     "src\\features\\session\\buildIdentity.ts",
+    "src\\features\\session\\steamMarket.ts",
     "src\\features\\simulator\\MiddlewareRunner.ts",
     "src\\features\\simulator\\SimulatorEngine.ts",
     "src\\features\\simulator\\__tests__\\SimulatorEngine.test.ts",
