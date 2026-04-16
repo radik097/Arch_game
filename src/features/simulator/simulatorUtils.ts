@@ -642,3 +642,7 @@ export function handleFdiskSessionCommand(state: GameState, commandLine: Termina
 
   return failState(state, commandLine, `fdisk: unknown interactive command '${input}'. Try m for help.`);
 }
+
+export function createDefaultContext(): 'beginner' {
+  return 'beginner';
+}

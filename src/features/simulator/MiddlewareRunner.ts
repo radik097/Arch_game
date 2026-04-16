@@ -30,3 +30,26 @@ export function createMiddlewareStack(difficulty: DifficultyMode): CommandMiddle
   if (['expert', 'god'].includes(difficulty)) stack.push(randomFailureMiddleware);
   return stack;
 }
+
+export async function runMiddlewareStack(
+  stack: CommandMiddleware[],
+  context: { command: string; state: any; result: any },
+): Promise<{ command: string; state: any; result: any }> {
+  const runner = new MiddlewareRunner(stack);
+  try {
+    context.result = await runner.run(
+      context.command,
+      context.state,
+      async () => ({
+        stdout: '',
+        stderr: '',
+        exitCode: 0,
+        stateChanges: {},
+        durationMs: 0,
+      }),
+    );
+  } catch {
+    context.result = context.result ?? null;
+  }
+  return context;
+}

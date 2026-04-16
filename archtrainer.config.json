@@ -3,7 +3,7 @@
   "fork_name": "",
   "github_repo": "",
   "player_id": "",
-  "build_hash": "fe625c5485debbd13b7fda24eb43003ba38f350672228c0dc9edc7e6d54c022b",
+  "build_hash": "de0304fd81acbec48cbc138ebd03738950fa3b642db80c9c1962ebc64e958ebc",
   "fork_signature": "I installed Arch the hard way.",
   "required_proof_file": "build_proof.json"
 }

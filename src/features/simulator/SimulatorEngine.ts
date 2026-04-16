@@ -95,6 +95,34 @@ export class SimulatorEngine implements IExecutionEngine {
     return supported.includes(command.split(' ')[0]);
   }
 
+  getCurrentStage(): InstallStage {
+    return this.state.currentStage;
+  }
+
+  advanceStage(result: 'success' | 'failure'): void {
+    if (result !== 'success') {
+      return;
+    }
+
+    const stages: InstallStage[] = [
+      'BOOT_LIVE',
+      'PARTITIONING',
+      'FORMATTING',
+      'MOUNTING',
+      'PACSTRAP',
+      'CHROOT',
+      'BOOTLOADER',
+      'COMPLETE',
+    ];
+    const currentIndex = stages.indexOf(this.state.currentStage);
+    if (currentIndex >= 0 && currentIndex < stages.length - 1) {
+      this.state = {
+        ...this.state,
+        currentStage: stages[currentIndex + 1],
+      };
+    }
+  }
+
   // --- Command Handlers ---
   private handleLsblk(): ExecutionResult {
     const devices = ['sda', 'sdb', 'nvme0n1'];

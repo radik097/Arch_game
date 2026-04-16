@@ -1,6 +1,16 @@
 import React, { Suspense } from 'react';
 
-const VMPanel = React.lazy(() => import('./VmPanel'));
+const VMPanel = React.lazy(async () => {
+  const module = await import('./VmPanel');
+  return { default: module.VmPanel };
+});
+
+interface LazyVMPanelProps {
+  locale: 'ru' | 'en';
+  onExit: () => void;
+  terminalMode?: 'vm' | 'simulation';
+  theme: 'emerald' | 'amber' | 'ice';
+}
 
 const VMLoadingScreen: React.FC = () => (
   <div style={{ color: '#0ff', fontFamily: 'monospace', textAlign: 'center', padding: 40 }}>
@@ -14,8 +24,8 @@ const VMLoadingScreen: React.FC = () => (
   </div>
 );
 
-export const LazyVMPanel: React.FC = () => (
+export const LazyVMPanel: React.FC<LazyVMPanelProps> = (props) => (
   <Suspense fallback={<VMLoadingScreen />}>
-    <VMPanel />
+    <VMPanel {...props} />
   </Suspense>
 );

@@ -1,119 +1,114 @@
 .page-container {
   min-height: 100vh;
-  background: radial-gradient(circle at top right, #1a1a1a 0%, #080808 100%);
-  color: #eee;
-  font-family: 'Inter', sans-serif;
-  padding: 40px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.01), rgba(255, 255, 255, 0)),
+    linear-gradient(180deg, var(--page-bg), var(--page-bg-alt));
+  color: var(--text-main);
+  padding: 32px 24px;
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
 }
 
 .page-header {
+  width: min(1120px, 100%);
+  margin: 0 auto 28px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 60px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  padding-bottom: 20px;
+  gap: 16px;
 }
 
 .page-header h1 {
-  font-family: 'Outfit', sans-serif;
-  font-size: 2rem;
-  font-weight: 800;
-  letter-spacing: 0.15rem;
   margin: 0;
-  background: linear-gradient(to right, #fff, #888);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  font-size: 1.8rem;
+  font-weight: 700;
 }
 
-.back-btn {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: #888;
-  padding: 8px 16px;
-  border-radius: 4px;
+.back-btn,
+.github-button {
+  background: var(--menu-button-bg);
+  border: 1px solid var(--menu-button-border);
+  color: var(--text-main);
+  padding: 10px 14px;
+  border-radius: 6px;
   cursor: pointer;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 12px;
-  transition: all 0.2s ease;
+  font: inherit;
+  text-decoration: none;
+  transition: border-color 140ms ease, background-color 140ms ease, color 140ms ease;
 }
 
-.back-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
-  border-color: rgba(255, 255, 255, 0.3);
+.back-btn:hover,
+.github-button:hover {
+  border-color: var(--menu-accent);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--menu-accent);
 }
 
 .page-content {
-  max-width: 900px;
+  width: min(1120px, 100%);
   margin: 0 auto;
-  width: 100%;
   display: grid;
-  gap: 30px;
+  gap: 18px;
 }
 
 .info-card {
-  background: rgba(20, 20, 20, 0.4);
-  backdrop-filter: blur(10px);
-  padding: 30px;
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.03);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  border: 1px solid var(--menu-border);
+  background: var(--menu-bg);
+  padding: 22px;
+  border-radius: 6px;
 }
 
 .info-card h2 {
-  font-family: 'JetBrains Mono', monospace;
+  margin: 0 0 14px;
   font-size: 1.1rem;
-  color: #5096dc;
-  margin-bottom: 20px;
-  letter-spacing: 0.1ch;
+  color: var(--menu-accent);
 }
 
-.info-card p {
-  line-height: 1.6;
-  color: #ccc;
-  font-size: 1.05rem;
+.info-card p,
+.help-steps,
+.tech-specs li {
+  line-height: 1.65;
+  color: var(--text-main);
+  font-size: 0.98rem;
 }
 
 .tech-specs ul {
   list-style: none;
   padding: 0;
+  margin: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 15px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
 }
 
-.tech-specs li::before {
-  content: "»";
-  color: #5096dc;
-  margin-right: 10px;
+.tech-specs li {
+  padding: 10px 12px;
+  border: 1px solid var(--menu-button-border);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.02);
 }
 
 .help-steps {
+  margin: 0;
   padding-left: 20px;
-  line-height: 2;
-  color: #ccc;
 }
 
-.github-button {
-  display: inline-block;
-  background: #24292e;
-  color: #fff;
-  padding: 12px 24px;
-  border-radius: 6px;
-  text-decoration: none;
-  font-family: 'JetBrains Mono', monospace;
-  font-weight: 600;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  transition: all 0.2s ease;
-}
+@media (max-width: 700px) {
+  .page-container {
+    padding: 18px 14px;
+  }
 
-.github-button:hover {
-  background: #2f363d;
-  border-color: rgba(255, 255, 255, 0.4);
-  transform: translateY(-2px);
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+  .page-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .page-header h1 {
+    font-size: 1.45rem;
+  }
+
+  .info-card {
+    padding: 18px;
+  }
 }

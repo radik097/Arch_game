@@ -1,10 +1,15 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { APP_TEXT, type AppLanguage, type AppThemeId } from '../../shared/i18n';
 import './VmPanel.css';
 
 interface VmPanelProps {
+  locale: AppLanguage;
   onExit: () => void;
   terminalMode?: 'vm' | 'simulation';
+  theme: AppThemeId;
 }
+
+type VmStatusTextKey = keyof typeof APP_TEXT.ru.vm.statuses;
 
 declare global {
   interface Window {
@@ -12,19 +17,24 @@ declare global {
   }
 }
 
-export const VmPanel: React.FC<VmPanelProps> = ({ onExit }) => {
+export const VmPanel: React.FC<VmPanelProps> = ({ locale, onExit, theme }) => {
+  const text = APP_TEXT[locale].vm;
   const screenRef = useRef<HTMLDivElement>(null);
   const emulatorRef = useRef<any>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [status, setStatus] = useState<'setup' | 'loading' | 'booting' | 'ready' | 'error'>('setup');
+  const [statusTextKey, setStatusTextKey] = useState<VmStatusTextKey>('systemIdle');
+  const [statusError, setStatusError] = useState<string | null>(null);
   const [config, setConfig] = useState({
-    memorySize: 512, // MB
+    memorySize: 512,
     bootMode: 'iso' as 'iso' | '9p',
   });
-  const [statusText, setStatusText] = useState('SYSTEM_IDLE');
   const [memUsage, setMemUsage] = useState('0');
   const [isFocused, setIsFocused] = useState(false);
 
-  // Focus the screen container to enable keyboard input
+  const statusText = statusError ?? text.statuses[statusTextKey];
+
   const focusScreen = useCallback(() => {
     if (status === 'ready') {
       screenRef.current?.focus();
@@ -33,21 +43,24 @@ export const VmPanel: React.FC<VmPanelProps> = ({ onExit }) => {
 
   const startV86 = () => {
     setStatus('loading');
+    setStatusError(null);
+    setStatusTextKey('loadingEngine');
   };
 
   useEffect(() => {
-    if (status === 'setup' || status === 'error') return;
+    if (status === 'setup' || status === 'error') {
+      return;
+    }
 
     let emulator: any = null;
     let memInterval: ReturnType<typeof setInterval> | null = null;
 
     async function initV86() {
       try {
-        setStatusText('LOADING_V86_ENGINE...');
+        setStatusTextKey('loadingEngine');
 
         const base = import.meta.env.BASE_URL || '/';
 
-        // Load V86 from static script instead of dynamic import for better GitHub Pages compatibility
         if (!window.V86) {
           await new Promise<void>((resolve, reject) => {
             const script = document.createElement('script');
@@ -60,7 +73,6 @@ export const VmPanel: React.FC<VmPanelProps> = ({ onExit }) => {
         }
 
         const V86Constructor = window.V86;
-
         if (!V86Constructor) {
           throw new Error('V86 constructor not found in global scope');
         }
@@ -69,7 +81,7 @@ export const VmPanel: React.FC<VmPanelProps> = ({ onExit }) => {
           throw new Error('Screen container not mounted');
         }
 
-        setStatusText('INITIALIZING_EMULATOR...');
+        setStatusTextKey('initializing');
 
         const options: any = {
           wasm_path: `${base}v86.wasm`,
@@ -82,49 +94,41 @@ export const VmPanel: React.FC<VmPanelProps> = ({ onExit }) => {
           disable_keyboard: false,
           disable_mouse: false,
           hda: {
-            size: 2 * 1024 * 1024 * 1024, // 2GB
+            size: 2 * 1024 * 1024 * 1024,
           },
-          boot_order: "dca"
+          boot_order: 'dca',
         };
 
         if (config.bootMode === 'iso') {
-          options.cdrom = { 
-            url: `${base}images/arch.iso`, 
-            async: true, 
-            size: 834666496 
+          options.cdrom = {
+            url: `${base}images/arch.iso`,
+            async: true,
+            size: 834666496,
           };
         } else {
-          // 9p mode
           options.filesystem = {
             baseurl: `${base}images/arch/`,
             basefs: `${base}images/fs.json`,
           };
           options.bzimage_initrd_from_filesystem = true;
           options.cmdline = [
-            "rw",
-            "root=host9p rootfstype=9p rootflags=trans=virtio,cache=loose",
-            "init=/usr/bin/init-openrc",
-          ].join(" ");
+            'rw',
+            'root=host9p rootfstype=9p rootflags=trans=virtio,cache=loose',
+            'init=/usr/bin/init-openrc',
+          ].join(' ');
         }
 
         emulator = new V86Constructor(options);
-
         emulatorRef.current = emulator;
 
         setStatus('booting');
-        setStatusText('BOOTING_ARCH_ISO...');
-
-        // Auto-focus screen for keyboard input
+        setStatusTextKey('booting');
         setTimeout(focusScreen, 500);
 
         emulator.add_listener('emulator-ready', () => {
           setStatus('ready');
-          setStatusText('SYSTEM_RUNNING');
+          setStatusTextKey('running');
           focusScreen();
-        });
-
-        emulator.add_listener('screen-set-size-graphical', (size: [number, number]) => {
-          console.log('Screen resolution:', size[0], 'x', size[1]);
         });
 
         memInterval = setInterval(() => {
@@ -134,38 +138,41 @@ export const VmPanel: React.FC<VmPanelProps> = ({ onExit }) => {
               if (stats) {
                 setMemUsage(Math.round(stats / (1024 * 1024)).toString());
               }
-            } catch { /* ignore */ }
+            } catch {
+              // ignore
+            }
           }
         }, 2000);
       } catch (err) {
-        console.error('V86 initialization failed:', err);
         setStatus('error');
-        setStatusText(`ERROR: ${err instanceof Error ? err.message : 'Unknown failure'}`);
+        setStatusError(err instanceof Error ? err.message : 'Unknown failure');
       }
     }
 
     if (status === 'loading') {
-      initV86();
+      void initV86();
     }
 
     return () => {
-      if (memInterval) clearInterval(memInterval);
+      if (memInterval) {
+        clearInterval(memInterval);
+      }
       if (emulatorRef.current) {
         try {
           emulatorRef.current.stop();
           emulatorRef.current.destroy();
-        } catch { /* cleanup */ }
+        } catch {
+          // cleanup
+        }
         emulatorRef.current = null;
       }
     };
-  }, [status, config.memorySize, focusScreen]);
+  }, [config.bootMode, config.memorySize, focusScreen, status]);
 
-
-  // Blur buttons after click so keyboard goes back to VM
   const btnClick = useCallback((handler: () => void) => {
-    return (e: React.MouseEvent<HTMLButtonElement>) => {
+    return (event: React.MouseEvent<HTMLButtonElement>) => {
       handler();
-      e.currentTarget.blur();
+      event.currentTarget.blur();
       setTimeout(focusScreen, 100);
     };
   }, [focusScreen]);
@@ -174,7 +181,8 @@ export const VmPanel: React.FC<VmPanelProps> = ({ onExit }) => {
     if (emulatorRef.current) {
       emulatorRef.current.restart();
       setStatus('booting');
-      setStatusText('REBOOTING...');
+      setStatusError(null);
+      setStatusTextKey('rebooting');
     }
   };
 
@@ -182,10 +190,10 @@ export const VmPanel: React.FC<VmPanelProps> = ({ onExit }) => {
     if (emulatorRef.current) {
       if (emulatorRef.current.is_running && emulatorRef.current.is_running()) {
         emulatorRef.current.stop();
-        setStatusText('PAUSED');
+        setStatusTextKey('paused');
       } else {
         emulatorRef.current.run();
-        setStatusText('SYSTEM_RUNNING');
+        setStatusTextKey('running');
       }
     }
   };
@@ -194,282 +202,277 @@ export const VmPanel: React.FC<VmPanelProps> = ({ onExit }) => {
     if (emulatorRef.current) {
       try {
         const state = await emulatorRef.current.save_state();
-        const a = document.createElement('a');
-        a.download = 'v86state.bin';
+        const anchor = document.createElement('a');
+        anchor.download = 'v86state.bin';
         const blob = new Blob([state], { type: 'application/octet-stream' });
         const url = window.URL.createObjectURL(blob);
-        a.href = url;
-        a.click();
+        anchor.href = url;
+        anchor.click();
         window.URL.revokeObjectURL(url);
-        setStatusText('STATE_SAVED');
-      } catch (err) {
-        console.error('Failed to save state:', err);
-        setStatusText('SAVE_FAILED');
+        setStatusTextKey('stateSaved');
+        setStatusError(null);
+      } catch {
+        setStatusTextKey('saveFailed');
       }
     }
   };
-
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleRestoreClick = () => {
     fileInputRef.current?.click();
   };
 
-  const handleRestoreState = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files?.length && emulatorRef.current) {
-      const file = e.target.files[0];
-      const filereader = new FileReader();
-      
-      setStatusText('RESTORING...');
+  const handleRestoreState = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files?.length && emulatorRef.current) {
+      const file = event.target.files[0];
+      const fileReader = new FileReader();
 
-      filereader.onload = async (event) => {
+      setStatusTextKey('restoring');
+      fileReader.onload = async (readerEvent) => {
         try {
-          if (event.target?.result instanceof ArrayBuffer) {
-            await emulatorRef.current.restore_state(event.target.result);
+          if (readerEvent.target?.result instanceof ArrayBuffer) {
+            await emulatorRef.current.restore_state(readerEvent.target.result);
             emulatorRef.current.run();
-            setStatusText('STATE_RESTORED');
+            setStatusTextKey('restored');
             focusScreen();
           }
-        } catch (err) {
-          console.error('Failed to restore state:', err);
-          setStatusText('RESTORE_FAILED');
+        } catch {
+          setStatusTextKey('restoreFailed');
         }
       };
-      filereader.readAsArrayBuffer(file);
-      // Reset input so the same file can be selected again
-      e.target.value = '';
+
+      fileReader.readAsArrayBuffer(file);
+      event.target.value = '';
     }
   };
 
   return (
-    <div className="vm-panel-container">
+    <div className={`vm-panel-container theme-${theme}`}>
       <header className="vm-header">
-        <div className="vm-status">
-          <span className={`status-dot ${status}`}></span>
-          <span className="status-text">{statusText}</span>
+        <div className="vm-header__brand">
+          <div className="vm-status">
+            <span className={`status-dot ${status}`}></span>
+            <span className="status-text">{statusText}</span>
+          </div>
         </div>
+
         <div className="vm-controls">
-          {status !== 'setup' && (
+          {status !== 'setup' ? (
             <>
-              <button className="vm-btn" onClick={btnClick(handlePause)}>PAUSE</button>
-              <button className="vm-btn" onClick={btnClick(handleReboot)}>REBOOT</button>
+              <button className="vm-btn" onClick={btnClick(handlePause)} type="button">{text.pause}</button>
+              <button className="vm-btn" onClick={btnClick(handleReboot)} type="button">{text.reboot}</button>
             </>
-          )}
-          <button className="vm-btn" onClick={btnClick(handleSaveState)}>EXPORT_STATE</button>
-          <button className="vm-btn" onClick={btnClick(handleRestoreClick)}>IMPORT_STATE</button>
-          <input 
-            type="file" 
-            ref={fileInputRef} 
-            onChange={handleRestoreState} 
-            style={{ display: 'none' }} 
+          ) : null}
+          <button className="vm-btn" onClick={btnClick(handleSaveState)} type="button">{text.exportState}</button>
+          <button className="vm-btn" onClick={btnClick(handleRestoreClick)} type="button">{text.importState}</button>
+          <input
             accept=".bin"
+            onChange={handleRestoreState}
+            ref={fileInputRef}
+            style={{ display: 'none' }}
+            type="file"
           />
-          <button className="vm-btn exit" onClick={onExit}>EXIT_TO_MAP</button>
+          <button className="vm-btn vm-btn--danger" onClick={onExit} type="button">{text.exit}</button>
         </div>
       </header>
 
       <main className="vm-main">
-        {status === 'setup' && (
-          <div className="vm-setup-overlay">
-            <div className="setup-card">
-              <div className="setup-header">
-                <span className="setup-icon">⚛</span>
-                <h2>VM_CONFIGURATION</h2>
+        {status === 'setup' ? (
+          <div className="vm-overlay">
+            <section className="vm-card">
+              <div className="vm-card__header">
+                <p className="vm-card__eyebrow">ARCH TRAINER VM</p>
+                <h1>{text.configTitle}</h1>
               </div>
-              
-              <div className="setup-body">
-                <div className="setting-group">
-                  <label>SYSTEM_MEMORY_ALLOCATION</label>
-                  <div className="memory-slider-container">
-                    <input 
-                      type="range" 
-                      min="256" 
-                      max="8192" 
-                      step="256"
-                      value={config.memorySize}
-                      onChange={(e) => setConfig({ ...config, memorySize: parseInt(e.target.value) })}
-                      className="memory-slider"
-                    />
-                    <div className="memory-display">
-                      <span className="memory-value">{config.memorySize}</span>
-                      <span className="memory-unit">MB</span>
-                      {config.memorySize >= 1024 && (
-                        <span className="memory-gb-hint">
-                          ({(config.memorySize / 1024).toFixed(1)} GB)
-                        </span>
-                      )}
-                    </div>
+
+              <div className="vm-card__section">
+                <label>{text.memory}</label>
+                <div className="memory-slider-container">
+                  <input
+                    className="memory-slider"
+                    max="8192"
+                    min="256"
+                    onChange={(event) => setConfig({ ...config, memorySize: parseInt(event.target.value, 10) })}
+                    step="256"
+                    type="range"
+                    value={config.memorySize}
+                  />
+                  <div className="memory-display">
+                    <span className="memory-value">{config.memorySize}</span>
+                    <span className="memory-unit">MB</span>
+                    {config.memorySize >= 1024 ? (
+                      <span className="memory-gb-hint">({(config.memorySize / 1024).toFixed(1)} GB)</span>
+                    ) : null}
                   </div>
                 </div>
+              </div>
 
-                <div className="setting-group">
-                  <label>SYSTEM_BOOT_MODE</label>
-                  <div className="mode-selector">
-                    <button 
-                      className={`mode-option ${config.bootMode === 'iso' ? 'active' : ''}`}
-                      onClick={() => setConfig({ ...config, bootMode: 'iso' })}
-                    >
-                      CD-ROM (ISO)
-                    </button>
-                    <button 
-                      className={`mode-option ${config.bootMode === '9p' ? 'active' : ''}`}
-                      onClick={() => setConfig({ ...config, bootMode: '9p' })}
-                    >
-                      NETWORK (9p)
-                    </button>
-                  </div>
-                </div>
-
-                <div className="setting-group">
-                  <label>HARDWARE_OVERVIEW</label>
-                  <div className="source-info">
-                    {config.bootMode === 'iso' ? (
-                      <>
-                        <span className="source-tag">ARCH_32_ISO</span>
-                        <span className="source-path">/images/arch.iso</span>
-                      </>
-                    ) : (
-                      <>
-                        <span className="source-tag">9P_FILESYSTEM</span>
-                        <span className="source-path">/images/arch/fs.json</span>
-                      </>
-                    )}
-                  </div>
-                </div>
-
-                <div className="setup-actions">
-                  {config.bootMode === '9p' && (
-                    <div className="asset-warning">
-                      ⚠️ FS_NETWORK_MODE requires /images/arch/fs.json (Not Found). 
-                      Please use CD-ROM mode unless you have the custom filesystem assets.
-                    </div>
-                  )}
-                  <button 
-                    className="start-btn" 
-                    onClick={startV86}
-                    disabled={config.bootMode === '9p'}
-                    title={config.bootMode === '9p' ? 'Assets missing for 9p boot' : ''}
+              <div className="vm-card__section">
+                <label>{text.bootMode}</label>
+                <div className="mode-selector">
+                  <button
+                    className={`mode-option${config.bootMode === 'iso' ? ' active' : ''}`}
+                    onClick={() => setConfig({ ...config, bootMode: 'iso' })}
+                    type="button"
                   >
-                    <span className="btn-glitch">START_SYSTEM</span>
+                    {text.cdrom}
+                  </button>
+                  <button
+                    className={`mode-option${config.bootMode === '9p' ? ' active' : ''}`}
+                    onClick={() => setConfig({ ...config, bootMode: '9p' })}
+                    type="button"
+                  >
+                    {text.network}
                   </button>
                 </div>
               </div>
-              
-              <div className="setup-footer">
-                <p>Verify hardware allocation before engine initialization.</p>
+
+              <div className="vm-card__section">
+                <label>{text.overview}</label>
+                <div className="source-info">
+                  {config.bootMode === 'iso' ? (
+                    <>
+                      <span className="source-tag">{text.cdrom}</span>
+                      <span className="source-path">/images/arch.iso</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="source-tag">{text.network}</span>
+                      <span className="source-path">/images/arch/fs.json</span>
+                    </>
+                  )}
+                </div>
               </div>
+
+              {config.bootMode === '9p' ? (
+                <div className="asset-warning">{text.assetWarning}</div>
+              ) : null}
+
+              <div className="setup-actions">
+                <button
+                  className="vm-btn vm-btn--primary"
+                  disabled={config.bootMode === '9p'}
+                  onClick={startV86}
+                  title={config.bootMode === '9p' ? text.assetWarning : ''}
+                  type="button"
+                >
+                  {text.start}
+                </button>
+              </div>
+
+              <p className="vm-card__footer">{text.footer}</p>
+            </section>
+          </div>
+        ) : null}
+
+        {status === 'loading' || status === 'booting' ? (
+          <div className="vm-overlay">
+            <div className="vm-loading">
+              <div className="spinner"></div>
+              <p>{statusText}</p>
+              <small>{text.loadingHint}</small>
             </div>
           </div>
-        )}
+        ) : null}
 
-        {(status === 'loading' || status === 'booting') && (
-          <div className="vm-loading-overlay">
-            <div className="spinner"></div>
-            <p>{statusText}</p>
-            <p className="loading-hint">Initializing V86 engine • Allocating {config.memorySize}MB RAM...</p>
+        {status === 'error' ? (
+          <div className="vm-overlay">
+            <div className="vm-loading">
+              <p>{statusError}</p>
+              <button className="vm-btn" onClick={() => window.location.reload()} type="button">{text.retry}</button>
+            </div>
           </div>
-        )}
+        ) : null}
 
-        {status === 'error' && (
-          <div className="vm-error-overlay">
-            <p className="error-icon">⚠</p>
-            <p className="error-text">{statusText}</p>
-            <button className="vm-btn" onClick={() => window.location.reload()}>RETRY</button>
-          </div>
-        )}
-
-        <div className="vm-layout-horizontal">
+        <div className="vm-layout">
           <div
-            id="screen_container"
-            ref={screenRef}
             className={`screen-container ${status === 'ready' ? 'visible' : 'hidden'} ${isFocused ? 'focused' : ''}`}
-            tabIndex={0}
+            id="screen_container"
+            onBlur={() => setIsFocused(false)}
             onClick={focusScreen}
             onFocus={() => setIsFocused(true)}
-            onBlur={() => setIsFocused(false)}
+            ref={screenRef}
             style={{ outline: 'none' }}
+            tabIndex={0}
           >
             <div style={{ whiteSpace: 'pre', font: '14px monospace', lineHeight: '14px' }}></div>
             <canvas style={{ display: 'none' }}></canvas>
           </div>
 
-          {(status === 'ready' || status === 'booting') && (
-            <aside className="simulation-sidebar vm-sidebar">
-              <div className="sidebar-header">
-                <h3>VM_HARDWARE_METRICS</h3>
-                <div className={`status-badge ${isFocused ? 'active-focus' : ''}`}>
-                  {isFocused ? 'FOCUSED' : 'ACTIVE'}
+          {status === 'ready' || status === 'booting' ? (
+            <aside className="vm-sidebar">
+              <section className="vm-sidebar__section">
+                <div className="vm-sidebar__header">
+                  <h3>{text.metrics}</h3>
+                  <div className={`vm-sidebar__badge ${isFocused ? 'is-focused' : ''}`}>
+                    {isFocused ? text.focused : text.active}
+                  </div>
                 </div>
-              </div>
-              
-              <div className="sidebar-section">
-                <h4>INPUT_DEVICE</h4>
-                <button 
-                  className={`vm-btn focus-btn ${isFocused ? 'active' : ''}`}
-                  onClick={focusScreen}
-                >
-                  {isFocused ? 'TERMINAL_FOCUSED' : 'FOCUS_TERMINAL_INPUT'}
+                <button className={`vm-btn vm-btn--full${isFocused ? ' is-active' : ''}`} onClick={focusScreen} type="button">
+                  {isFocused ? text.focused : text.focusInput}
                 </button>
-              </div>
+              </section>
 
-              <div className="sidebar-section">
-                <h4>RESOURCE_USAGE</h4>
+              <section className="vm-sidebar__section">
+                <h4>{text.resources}</h4>
                 <div className="metrics-list">
                   <div className="metric-item">
-                    <label>CPU_LOAD</label>
+                    <label>{text.cpuLoad}</label>
                     <div className="meter-bar">
                       <div className="meter-fill" style={{ width: `${Math.floor(Math.random() * 15) + (status === 'ready' ? 5 : 45)}%` }}></div>
                     </div>
                   </div>
                   <div className="metric-item">
-                    <label>RAM_ALLOCATED</label>
+                    <label>{text.ramAllocated}</label>
                     <div className="meter-bar">
                       <div className="meter-fill" style={{ width: `${Math.min(100, (config.memorySize / 8192) * 100)}%` }}></div>
                     </div>
                   </div>
                 </div>
-              </div>
+              </section>
 
-              <div className="sidebar-section">
-                <h4>VM_SPECIFICATIONS</h4>
+              <section className="vm-sidebar__section">
+                <h4>{text.specs}</h4>
                 <div className="hardware-grid">
                   <div className="hw-item">
-                    <span className="hw-label">DISK</span>
+                    <span className="hw-label">{text.disk}</span>
                     <span className="hw-value">2GB_VDA</span>
                   </div>
                   <div className="hw-item">
-                    <span className="hw-label">MEM</span>
+                    <span className="hw-label">{text.memoryShort}</span>
                     <span className="hw-value">{config.memorySize}MB</span>
                   </div>
                   <div className="hw-item">
-                    <span className="hw-label">BOOT</span>
+                    <span className="hw-label">{text.bootShort}</span>
                     <span className="hw-value">{config.bootMode.toUpperCase()}</span>
                   </div>
+                  <div className="hw-item">
+                    <span className="hw-label">USED</span>
+                    <span className="hw-value">{memUsage}MB</span>
+                  </div>
                 </div>
-              </div>
+              </section>
 
-              <div className="sidebar-section">
-                <h4>V86_TASKS</h4>
+              <section className="vm-sidebar__section">
+                <h4>{text.tasks}</h4>
                 <div className="status-grid">
-                  <div className={`status-item complete`}>INIT_ENGINE</div>
-                  <div className={`status-item ${status === 'ready' ? 'complete' : ''}`}>LOAD_KERNEL</div>
-                  <div className={`status-item`}>USER_LOGIN</div>
+                  <div className="status-item is-done">{text.initEngine}</div>
+                  <div className={`status-item ${status === 'ready' ? 'is-done' : ''}`}>{text.loadKernel}</div>
+                  <div className={`status-item ${status === 'ready' ? 'is-done' : ''}`}>{text.userLogin}</div>
                 </div>
-              </div>
+              </section>
 
-              <div className="sidebar-footer">
-                <button className="vm-btn" onClick={handleSaveState}>SAVE_STATE</button>
-                <div style={{ height: '8px' }}></div>
-                <button className="vm-btn" onClick={handleRestoreClick}>RESTORE_STATE</button>
-              </div>
+              <section className="vm-sidebar__section">
+                <button className="vm-btn vm-btn--full" onClick={handleSaveState} type="button">{text.saveState}</button>
+                <button className="vm-btn vm-btn--full" onClick={handleRestoreClick} type="button">{text.restoreState}</button>
+              </section>
             </aside>
-          )}
+          ) : null}
         </div>
       </main>
 
       <footer className="vm-footer">
-        <div className="keyboard-hint">Click screen to type • Buttons return focus to VM</div>
-        <div className="stats">CPU: i686 | RAM: {config.memorySize}MB | MODE: {config.bootMode.toUpperCase()}</div>
+        <span>{text.clickToType}</span>
+        <span>{text.buttonsReturnFocus}</span>
       </footer>
     </div>
   );

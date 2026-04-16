@@ -1,5 +1,16 @@
 import { InstallStage, SystemState } from '../../shared/types';
 
+export const installStages: InstallStage[] = [
+  'BOOT_LIVE',
+  'PARTITIONING',
+  'FORMATTING',
+  'MOUNTING',
+  'PACSTRAP',
+  'CHROOT',
+  'BOOTLOADER',
+  'COMPLETE',
+];
+
 export interface Transition {
   from: InstallStage;
   to: InstallStage;

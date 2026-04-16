@@ -1,40 +1,37 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { APP_TEXT, type AppLanguage, type AppThemeId } from '../../shared/i18n';
 import './Pages.css';
 
-export const AboutPage: React.FC = () => {
+interface AboutPageProps {
+  locale: AppLanguage;
+  theme: AppThemeId;
+}
+
+export const AboutPage: React.FC<AboutPageProps> = ({ locale, theme }) => {
   const navigate = useNavigate();
+  const text = APP_TEXT[locale].pages;
 
   return (
-    <div className="page-container about-page">
+    <div className={`page-container about-page theme-${theme}`}>
       <header className="page-header">
-        <button className="back-btn" onClick={() => navigate('/')}>← BACK_TO_MAP</button>
-        <h1>ABOUT_ARCH_TRAINER</h1>
+        <button className="back-btn" onClick={() => navigate('/')}>{text.backToMenu}</button>
+        <h1>{text.aboutTitle}</h1>
       </header>
       
       <main className="page-content">
         <section className="info-card">
-          <h2>THE_SIMULATOR</h2>
-          <p>
-            Arch Trainer is a high-fidelity terminal simulation designed to teach 
-            the logic and workflow of installing Arch Linux. It provides a safe, 
-            sandboxed environment where you can practice complex commands 
-            without risking your actual hardware.
-          </p>
+          <h2>{text.aboutSections.simulatorTitle}</h2>
+          <p>{text.aboutSections.simulatorBody}</p>
         </section>
 
         <section className="info-card">
-          <h2>VIRTUALIZATION</h2>
-          <p>
-            Beyond simulation, Arch Trainer includes a WebAssembly-powered 
-            virtual machine (V86) that runs the real Arch Linux ISO. This allows 
-            for a seamless transition from conceptual learning to actual 
-            implementation.
-          </p>
+          <h2>{text.aboutSections.vmTitle}</h2>
+          <p>{text.aboutSections.vmBody}</p>
         </section>
 
         <section className="info-card tech-specs">
-          <h2>TECH_STACK</h2>
+          <h2>{text.aboutSections.stackTitle}</h2>
           <ul>
             <li>React + Vite</li>
             <li>XTerm.js for Terminal Emulation</li>
