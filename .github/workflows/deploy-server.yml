@@ -16,7 +16,7 @@ jobs:
       - run: npm run build:server
       - run: npm run migrate
       - name: Deploy to Railway
-        uses: railwayapp/cli-action@v1
+        uses: railwayapp/railway-action@v1
         with:
           railwayToken: ${{ secrets.RAILWAY_TOKEN }}
           command: up
