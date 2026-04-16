@@ -1,13 +1,13 @@
 /* ===== Graph Container ===== */
 .graph-container {
-  width: 100vw;
+  width: 100%;
   height: 100vh;
-  background: radial-gradient(ellipse at 20% 50%, #0c1929 0%, #070e17 50%, #040810 100%);
+  background: radial-gradient(circle at 50% 50%, #0a0b1e 0%, #020205 100%);
   position: relative;
   overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  font-family: 'Inter', 'Segoe UI', sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  color: #fff;
+  user-select: none;
 }
 
 /* ===== Animated Background Particles ===== */
@@ -191,15 +191,18 @@
 }
 
 .node-rect {
-  fill: rgba(12, 18, 35, 0.85);
-  stroke-width: 1.2;
+  fill: rgba(10, 15, 30, 0.85);
+  backdrop-filter: blur(12px);
+  stroke-width: 1.5;
   rx: 8;
   ry: 8;
-  transition: fill 0.3s ease, stroke-opacity 0.3s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .node-group.hovered .node-rect {
-  fill: rgba(18, 28, 55, 0.95);
+  fill: rgba(20, 30, 60, 0.95);
+  stroke-width: 2.5;
+  transform: scale(1.02);
 }
 
 .node-glow-ring {
@@ -253,26 +256,10 @@
 }
 
 /* ===== Play Button ===== */
+
 .node-play-btn {
   cursor: pointer;
-  transition: transform 0.2s ease;
-}
-
-.node-play-btn:hover {
-  transform: scale(1.15) translate(145.45px, 32px); /* Adjustment for coordinate space balance if needed, but translate is already handled by transform in TSX */
-}
-
-/* Re-adjusting translate for hover in CSS is tricky with SVG transform; let's stick to simple scale or internal group */
-.node-play-btn:hover .play-bg {
-  fill-opacity: 0.25;
-}
-
-.node-play-btn:hover path {
-  filter: drop-shadow(0 0 8px currentColor);
-}
-
-.node-play-btn:active {
-  transform: scale(0.95);
+  /* No animation or transform on hover/active, keep static */
 }
 
 /* ===== Status Bar ===== */

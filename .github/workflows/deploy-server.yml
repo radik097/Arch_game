@@ -1,0 +1,22 @@
+name: Deploy Server
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm run build:server
+      - run: npm run migrate
+      - name: Deploy to Railway
+        uses: railwayapp/cli-action@v1
+        with:
+          railwayToken: ${{ secrets.RAILWAY_TOKEN }}
+          command: up

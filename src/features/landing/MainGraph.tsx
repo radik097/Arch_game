@@ -12,7 +12,11 @@ interface GraphNode {
   icon: string;
   route?: string;
   color: string;
+  group?: string; // Node group identifier
+  instructions?: string; // Node instructions
+  trainInfo?: string; // Node train information
 }
+
 
 interface Connector {
   id: string;
@@ -22,23 +26,48 @@ interface Connector {
 }
 
 const INITIAL_NODES: GraphNode[] = [
-  { id: 'preflight', label: '1. PRE_FLIGHT_ISO',   subtitle: 'Boot & Kernel Setup',   x: 600, y: 120, type: 'core',   icon: '⏹️', route: '/vm',          color: '#a855f7' },
-  { id: 'disk',      label: '2. DISK_MANAGEMENT',  subtitle: 'fdisk & Partitioning',  x: 400, y: 120, type: 'core',   icon: '💾', route: '/simulations', color: '#00d4ff' },
-  { id: 'mount',     label: '3. FILESYSTEM_MOUNTS',subtitle: 'Mount & Swap Setup',    x: 200, y: 120, type: 'core',   icon: '🔗', route: '/simulations', color: '#22c55e' },
-  { id: 'base',      label: '4. BASE_STRAPS',      subtitle: 'pacstrap System',       x: 200, y: 320, type: 'core',   icon: '📦', route: '/simulations', color: '#f59e0b' },
-  { id: 'chroot',    label: '5. CHROOT_INTERNAL',  subtitle: 'Configuration Stage',   x: 400, y: 320, type: 'core',   icon: '🏗️', route: '/simulations', color: '#8b5cf6' },
-  { id: 'ready',     label: '6. SYSTEM_READY',     subtitle: 'Grub & Final Steps',    x: 600, y: 320, type: 'core',   icon: '🏁', route: '/simulations', color: '#10b981' },
-  
-  { id: 'about',     label: 'ABOUT_PROJECT',       subtitle: 'Mission & Stack',       x: 400, y: 500, type: 'info',   icon: '◎', route: '/about',       color: '#94a3b8' },
+  // Group 1: Simulations
+  { id: 'sim1', label: 'Simulation 1', subtitle: 'Step 1', x: 100, y: 100, type: 'info', icon: 'ℹ️', color: '#00d4ff', group: 'simulations', instructions: 'Instruction for Simulation 1', trainInfo: 'Train info 1' },
+  { id: 'sim2', label: 'Simulation 2', subtitle: 'Step 2', x: 300, y: 100, type: 'info', icon: 'ℹ️', color: '#00d4ff', group: 'simulations', instructions: 'Instruction for Simulation 2', trainInfo: 'Train info 2' },
+  { id: 'sim3', label: 'Simulation 3', subtitle: 'Step 3', x: 500, y: 100, type: 'info', icon: 'ℹ️', color: '#00d4ff', group: 'simulations', instructions: 'Instruction for Simulation 3', trainInfo: 'Train info 3' },
+  { id: 'sim4', label: 'Simulation 4', subtitle: 'Step 4', x: 700, y: 100, type: 'info', icon: 'ℹ️', color: '#00d4ff', group: 'simulations', instructions: 'Instruction for Simulation 4', trainInfo: 'Train info 4' },
+  { id: 'sim5', label: 'Simulation 5', subtitle: 'Step 5', x: 900, y: 100, type: 'info', icon: 'ℹ️', color: '#00d4ff', group: 'simulations', instructions: 'Instruction for Simulation 5', trainInfo: 'Train info 5' },
+  { id: 'sim6', label: 'Simulation 6', subtitle: 'Step 6', x: 100, y: 300, type: 'info', icon: 'ℹ️', color: '#00d4ff', group: 'simulations', instructions: 'Instruction for Simulation 6', trainInfo: 'Train info 6' },
+  { id: 'sim7', label: 'Simulation 7', subtitle: 'Step 7', x: 300, y: 300, type: 'info', icon: 'ℹ️', color: '#00d4ff', group: 'simulations', instructions: 'Instruction for Simulation 7', trainInfo: 'Train info 7' },
+  { id: 'sim8', label: 'Simulation 8', subtitle: 'Step 8', x: 500, y: 300, type: 'info', icon: 'ℹ️', color: '#00d4ff', group: 'simulations', instructions: 'Instruction for Simulation 8', trainInfo: 'Train info 8' },
+  { id: 'sim9', label: 'Simulation 9', subtitle: 'Step 9', x: 700, y: 300, type: 'info', icon: 'ℹ️', color: '#00d4ff', group: 'simulations', instructions: 'Instruction for Simulation 9', trainInfo: 'Train info 9' },
+  { id: 'sim-run', label: 'Run Simulation', subtitle: 'Start the simulation', x: 900, y: 300, type: 'core', icon: '▶️', color: '#22c55e', group: 'simulations', instructions: 'Run the simulation', trainInfo: 'Simulation runner', route: '/simulations' },
+
+  // Group 2: VM Info
+  { id: 'vm1', label: 'VM Info 1', subtitle: 'VM Step 1', x: 100, y: 550, type: 'info', icon: '💻', color: '#a855f7', group: 'vm', instructions: 'VM instruction 1', trainInfo: 'VM train info 1' },
+  { id: 'vm2', label: 'VM Info 2', subtitle: 'VM Step 2', x: 300, y: 550, type: 'info', icon: '💻', color: '#a855f7', group: 'vm', instructions: 'VM instruction 2', trainInfo: 'VM train info 2' },
+  { id: 'vm3', label: 'VM Info 3', subtitle: 'VM Step 3', x: 500, y: 550, type: 'info', icon: '💻', color: '#a855f7', group: 'vm', instructions: 'VM instruction 3', trainInfo: 'VM_train_info_3' },
+  { id: 'vm4', label: 'VM Info 4', subtitle: 'VM Step 4', x: 700, y: 550, type: 'info', icon: '💻', color: '#a855f7', group: 'vm', instructions: 'VM instruction 4', trainInfo: 'VM_train_info_4' },
+  { id: 'vm-run', label: 'Run VM', subtitle: 'Start the VM', x: 900, y: 550, type: 'core', icon: '▶️', color: '#f59e0b', group: 'vm', instructions: 'Run the VM', trainInfo: 'VM runner', route: '/vm' },
+
+  // Group 3: About Project
+  { id: 'about1', label: 'About Project', subtitle: 'Project Mission', x: 500, y: 800, type: 'info', icon: '◎', color: '#94a3b8', group: 'about', instructions: 'About the project', trainInfo: 'Project info', route: '/about' },
 ];
 
 const INITIAL_CONNECTORS: Connector[] = [
-  { id: 'c1', source: 'preflight', target: 'disk',      animated: true },
-  { id: 'c2', source: 'disk',      target: 'mount',     animated: true },
-  { id: 'c3', source: 'mount',     target: 'base',      animated: true },
-  { id: 'c4', source: 'base',      target: 'chroot',    animated: true },
-  { id: 'c5', source: 'chroot',    target: 'ready',     animated: true },
-  { id: 'c6', source: 'ready',     target: 'about',     animated: false },
+  // Simulations group connectors
+  { id: 'sim-c1', source: 'sim1', target: 'sim2', animated: true },
+  { id: 'sim-c2', source: 'sim2', target: 'sim3', animated: true },
+  { id: 'sim-c3', source: 'sim3', target: 'sim4', animated: true },
+  { id: 'sim-c4', source: 'sim4', target: 'sim5', animated: true },
+  { id: 'sim-c5', source: 'sim5', target: 'sim6', animated: true },
+  { id: 'sim-c6', source: 'sim6', target: 'sim7', animated: true },
+  { id: 'sim-c7', source: 'sim7', target: 'sim8', animated: true },
+  { id: 'sim-c8', source: 'sim8', target: 'sim9', animated: true },
+  { id: 'sim-c9', source: 'sim9', target: 'sim-run', animated: true },
+
+  // VM group connectors
+  { id: 'vm-c1', source: 'vm1', target: 'vm2', animated: true },
+  { id: 'vm-c2', source: 'vm2', target: 'vm3', animated: true },
+  { id: 'vm-c3', source: 'vm3', target: 'vm4', animated: true },
+  { id: 'vm-c4', source: 'vm4', target: 'vm-run', animated: true },
+
+  // About group (no connectors needed if only one node)
 ];
 
 const NODE_W = 160;
@@ -296,6 +325,7 @@ export const MainGraph: React.FC<{ onAddPlugin: (url: string) => void }> = ({ on
               )}
 
               {/* Play Button */}
+
               <g 
                 className="node-play-btn"
                 onClick={(e) => {

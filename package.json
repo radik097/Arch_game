@@ -5,14 +5,16 @@
   "type": "module",
   "scripts": {
     "prepare:client": "node scripts/generate-build-proof.mjs",
-    "dev": "npm run prepare:client && vite",
-    "dev:server": "tsx watch server/index.ts",
+    "dev": "NODE_OPTIONS=--inspect=9230 npm run prepare:client && vite",
+    "dev:server": "NODE_OPTIONS=--inspect=9229 tsx watch server/index.ts",
+    "dev:all": "concurrently \"npm run dev:server\" \"npm run dev\"",
     "build": "npm run build:client && npm run build:server",
     "build:client": "npm run prepare:client && tsc && vite build",
     "build:server": "tsc -p tsconfig.server.json",
     "start:server": "tsx server/index.ts",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "migrate": "tsx server/storage/migrate.ts"
   },
   "dependencies": {
     "@xterm/addon-fit": "^0.11.0",
@@ -21,7 +23,9 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^7.13.1",
-    "v86": "^0.5.319"
+    "v86": "^0.5.319",
+    "@xyflow/react": "^12.0.0",
+    "better-sqlite3": "^9.0.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
@@ -32,6 +36,10 @@
     "tsx": "^4.19.2",
     "typescript": "^5.6.3",
     "vite": "^7.0.0",
-    "vitest": "^4.1.0"
+    "vitest": "^4.1.0",
+    "concurrently": "^8.2.2",
+    "@testing-library/jest-dom": "^6.1.5",
+    "@testing-library/react": "^14.2.1",
+    "@types/better-sqlite3": "^7.0.0"
   }
 }
