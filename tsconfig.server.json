@@ -10,5 +10,6 @@
     "types": ["node"],
     "noEmit": true
   },
-  "include": ["server/**/*.ts", "src/shared/**/*.ts", "src/features/simulator/**/*.ts"]
+  "include": ["server/**/*.ts", "src/shared/**/*.ts", "src/features/simulator/**/*.ts"],
+  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/**/__tests__/**"]
 }
