@@ -7,9 +7,9 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
-    "types": ["node"],
+    "types": ["node", "vite/client"],
     "noEmit": true
   },
-  "include": ["server/**/*.ts", "src/shared/**/*.ts", "src/features/simulator/**/*.ts"],
+  "include": ["server/**/*.ts", "src/shared/**/*.ts", "src/features/simulator/**/*.ts", "src/**/*.d.ts"],
   "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/**/__tests__/**"]
 }
