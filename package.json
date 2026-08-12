@@ -11,6 +11,7 @@
     "build": "npm run build:client && npm run build:server",
     "build:client": "npm run prepare:client && tsc && vite build",
     "build:server": "tsc -p tsconfig.server.json",
+    "start": "npm run start:server",
     "start:server": "tsx server/index.ts",
     "preview": "vite preview",
     "test": "vitest run",
@@ -25,12 +26,16 @@
     "react-router-dom": "^7.13.1",
     "v86": "^0.5.319",
     "@xyflow/react": "^12.0.0",
-    "better-sqlite3": "^9.0.0"
+    "better-sqlite3": "^9.0.0",
+    "cors": "^2.8.5",
+    "express": "^5.1.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
+    "@types/express": "^5.0.3",
+    "@types/cors": "^2.8.19",
     "@vitejs/plugin-react-swc": "^3.7.2",
     "playwright": "^1.58.2",
     "tsx": "^4.19.2",
