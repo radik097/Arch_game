@@ -37,7 +37,8 @@ export const SessionRepository = {
     return { ...data, verified: false };
   },
   async getSession(id: string): Promise<Session | null> {
-    return db.prepare('SELECT * FROM sessions WHERE id = ?').get(id) || null;
+    const row = db.prepare('SELECT * FROM sessions WHERE id = ?').get(id) as Session | undefined;
+    return row ?? null;
   },
   async updateSession(id: string, data: Partial<Session>): Promise<void> {
     const fields = Object.keys(data).map((k) => `${k} = ?`).join(', ');
@@ -46,14 +47,14 @@ export const SessionRepository = {
   },
   async getLeaderboard(difficulty?: string, limit = 20): Promise<LeaderboardEntry[]> {
     let sql = 'SELECT * FROM leaderboard';
-    const params: any[] = [];
+    const params: unknown[] = [];
     if (difficulty) {
       sql += ' WHERE difficulty = ?';
       params.push(difficulty);
     }
     sql += ' ORDER BY duration_ms ASC LIMIT ?';
     params.push(limit);
-    return db.prepare(sql).all(...params);
+    return db.prepare(sql).all(...params) as LeaderboardEntry[];
   },
   async addReplayEvent(event: ReplayEvent): Promise<void> {
     db.prepare(`INSERT INTO replay_events (id, session_id, timestamp, command, stdout_hash, state_hash, sequence_num) VALUES (?, ?, ?, ?, ?, ?, ?)`).run(
@@ -61,6 +62,6 @@ export const SessionRepository = {
     );
   },
   async getReplayEvents(sessionId: string): Promise<ReplayEvent[]> {
-    return db.prepare('SELECT * FROM replay_events WHERE session_id = ? ORDER BY sequence_num ASC').all(sessionId);
+    return db.prepare('SELECT * FROM replay_events WHERE session_id = ? ORDER BY sequence_num ASC').all(sessionId) as ReplayEvent[];
   },
 };
