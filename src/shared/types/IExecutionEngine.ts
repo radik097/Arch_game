@@ -63,3 +63,13 @@ export const DEFAULT_SYSTEM_STATE: SystemState = {
   users: [],
   bootloader: null,
 };
+
+export function createDefaultSystemState(): SystemState {
+  return {
+    ...DEFAULT_SYSTEM_STATE,
+    partitions: [],
+    mounts: {},
+    installedPackages: [],
+    users: [],
+  };
+}

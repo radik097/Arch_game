@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, createHmac } from 'node:crypto';
 import { readdir, readFile, writeFile } from 'node:fs/promises';
 import { join, relative } from 'node:path';
 
@@ -27,7 +27,9 @@ async function main() {
   const generatedAt = new Date().toISOString();
   const buildId = sha256(`${buildHash}:${generatedAt}`).slice(0, 16);
   const signature = playerSecret
-    ? sha256(`${playerSecret}:${buildHash}:${configHash}:${generatedAt}:${buildId}`)
+    ? createHmac('sha256', playerSecret)
+        .update(`${buildHash}:${configHash}:${generatedAt}:${buildId}`)
+        .digest('hex')
     : '';
 
   const buildProof = {
@@ -75,7 +77,7 @@ async function walk(directory) {
       continue;
     }
 
-    files.push(relative(rootDir, absolutePath));
+    files.push(relative(rootDir, absolutePath).replaceAll('\\', '/'));
   }
 
   return files;

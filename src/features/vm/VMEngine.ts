@@ -1,4 +1,4 @@
-import { IExecutionEngine, SystemState, ExecutionResult, DEFAULT_SYSTEM_STATE } from '../../shared/types';
+import { IExecutionEngine, SystemState, ExecutionResult, createDefaultSystemState } from '../../shared/types';
 
 // Заглушка для v86 API
 interface V86API {
@@ -13,7 +13,7 @@ export class VMEngine implements IExecutionEngine {
 
   constructor(v86: V86API) {
     this.v86 = v86;
-    this.state = { ...DEFAULT_SYSTEM_STATE };
+    this.state = createDefaultSystemState();
   }
 
   async execute(command: string): Promise<ExecutionResult> {
@@ -60,7 +60,7 @@ export class VMEngine implements IExecutionEngine {
   }
 
   reset(): void {
-    this.state = { ...DEFAULT_SYSTEM_STATE };
+    this.state = createDefaultSystemState();
   }
 
   supportsCommand(command: string): boolean {

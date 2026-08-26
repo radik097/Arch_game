@@ -1,5 +1,5 @@
 import { defineConfig } from 'vitest/config';
-import react from '@vitejs/plugin-react-swc';
+import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   base: process.env.VITE_BASE_PATH ?? '/',
@@ -11,19 +11,28 @@ export default defineConfig({
       ['**/*.server.test.ts', 'node'],
       ['server/**/*.test.ts', 'node'],
       ['**/*.test.ts', 'jsdom'],
+      ['**/*.test.tsx', 'jsdom'],
     ],
   },
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
-          'vendor-terminal': ['@xterm/xterm', '@xterm/addon-fit'],
-          'vendor-v86': ['v86'],
-          'feature-simulator': [
-            './src/features/simulator/SimulatorEngine',
-            './src/features/simulator/installationFSM',
-          ],
+        manualChunks(id) {
+          const normalizedId = id.replace(/\\/g, '/');
+
+          if (/\/node_modules\/(react|react-dom|react-router|react-router-dom)\//.test(normalizedId)) {
+            return 'vendor-react';
+          }
+
+          if (normalizedId.includes('/node_modules/@xterm/')) {
+            return 'vendor-terminal';
+          }
+
+          if (normalizedId.includes('/src/features/simulator/')) {
+            return 'feature-simulator';
+          }
+
+          return undefined;
         },
       },
     },

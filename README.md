@@ -57,9 +57,11 @@
 ```bash
 git clone https://github.com/radik097/Arch_game.git
 cd Arch_game
-npm install --legacy-peer-deps
+npm ci
 npm run dev
 ```
+
+The full VM assets are prepared automatically by the GitHub Pages workflow. The simulator and the rest of the site run locally without downloading the large Arch root filesystem.
 
 ---
 *Inspired by the Arch Linux passion. Built for the community.*

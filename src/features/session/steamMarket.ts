@@ -81,7 +81,7 @@ export async function fetchSteamPriceOverview(
     try {
       const payload = await fetchJsonWithTimeout(targetUrl, timeoutMs, options.signal, {
         Accept: 'application/json',
-        'User-Agent': 'ArchTrainer/0.1.0',
+        'User-Agent': 'ArchTrainer/0.2.0',
       });
       return normalizePriceOverview(payload, normalized, 'direct');
     } catch (error) {

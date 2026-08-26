@@ -1,4 +1,4 @@
-import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import { createHash, createHmac, randomBytes, randomUUID } from 'node:crypto';
 import type {
   BuildProof,
   ForkConfig,
@@ -32,14 +32,7 @@ export async function registerPlayer(request: PlayerRegistrationRequest): Promis
 
   const existing = await getPlayerByRepo(githubRepo);
   if (existing) {
-    return {
-      playerId: existing.playerId,
-      playerSecret: existing.playerSecret,
-      githubRepo: existing.githubRepo,
-      configUrl: buildRawGitHubUrl(githubRepo, metadata.defaultBranch, 'archtrainer.config.json'),
-      proofFile: 'build_proof.json',
-      forkVerified: true,
-    };
+    throw new Error('This GitHub fork is already registered. Use the original player secret.');
   }
 
   const player: PlayerRecord = {
@@ -106,9 +99,9 @@ export function computeConfigHash(config: ForkConfig): string {
 }
 
 export function computeBuildProofSignature(playerSecret: string, buildProof: BuildProof): string {
-  return sha256(
-    `${playerSecret}:${buildProof.build_hash}:${buildProof.config_hash}:${buildProof.generated_at}:${buildProof.build_id}`,
-  );
+  return createHmac('sha256', playerSecret)
+    .update(`${buildProof.build_hash}:${buildProof.config_hash}:${buildProof.generated_at}:${buildProof.build_id}`)
+    .digest('hex');
 }
 
 function validateForkConfig(config: ForkConfig, githubRepo: string, playerId: string): void {
@@ -159,6 +152,7 @@ function validateBuildProof(buildProof: BuildProof, config: ForkConfig, playerSe
 async function fetchRepoMetadata(githubRepo: string): Promise<GitHubRepoMetadata> {
   const response = await fetch(`https://api.github.com/repos/${githubRepo}`, {
     headers: githubHeaders(),
+    signal: AbortSignal.timeout(8_000),
   });
 
   if (!response.ok) {
@@ -177,6 +171,7 @@ async function fetchRepoMetadata(githubRepo: string): Promise<GitHubRepoMetadata
 async function fetchRepoJson<T>(githubRepo: string, branch: string, filePath: string): Promise<T> {
   const response = await fetch(buildRawGitHubUrl(githubRepo, branch, filePath), {
     headers: githubHeaders(),
+    signal: AbortSignal.timeout(8_000),
   });
 
   if (!response.ok) {
@@ -233,7 +228,11 @@ function normalizeGitHubRepo(value: string): string {
     return trimmed.replace('https://github.com/', '');
   }
 
-  return trimmed.replace(/^github\.com\//, '');
+  const normalized = trimmed.replace(/^github\.com\//, '');
+  if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(normalized)) {
+    throw new Error('GitHub repository must use the owner/repository format.');
+  }
+  return normalized;
 }
 
 function sha256(value: string): string {

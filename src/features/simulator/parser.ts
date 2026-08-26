@@ -27,24 +27,20 @@ export function parseCommandLine(input: string): ParsedCommand {
         const key = part.substring(2);
         flags[key] = true;
       }
-    } else if (part.startsWith('-')) {
+    } else if (part.startsWith('-') && part.length > 1) {
       const flagPart = part.substring(1);
-      // Handle cases like -F32 or -v
-      if (flagPart.length > 1) {
-        // Assume first char is flag name, rest is value (e.g., -F32)
+      if (/^[A-Za-z]+$/.test(flagPart) && flagPart.length > 1) {
+        for (const key of flagPart) {
+          flags[key] = true;
+        }
+      } else if (flagPart.length > 1) {
+        // Attached values such as -F32 keep the first character as the key.
         const key = flagPart[0];
         const value = flagPart.substring(1);
         flags[key] = value;
       } else {
-        // Check next part for value (e.g., -F 32)
-        const key = flagPart;
-        const nextPart = parts[i + 1];
-        if (nextPart && !nextPart.startsWith('-')) {
-          flags[key] = nextPart;
-          i++; // Skip next part
-        } else {
-          flags[key] = true;
-        }
+        // A standalone short flag must not consume the following positional argument.
+        flags[flagPart] = true;
       }
     } else {
       args.push(part);
