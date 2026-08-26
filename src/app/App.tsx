@@ -1,12 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { deriveObjectives } from '../features/simulator/objectives';
 import { completeInput, createInitialState, executeCommand, getPromptLabel } from '../features/simulator/engine';
 import type { Difficulty, GameState, ObjectiveId, TerminalLine } from '../features/simulator/types';
 import { fetchLeaderboard, fetchVisitorStats, registerVisit, startOfficialSession, submitOfficialReplay } from '../features/session/api';
 import { createVerificationBundle, getLocalForkConfig, getVerificationSummary } from '../features/session/buildIdentity';
-import { XtermTerminal } from '../features/terminal/XtermTerminal';
-import { VmPanel } from '../features/vm';
 import { MainGraph } from '../features/landing';
 import { AboutPage, HelpPage } from '../features/pages';
 import { APP_TEXT, detectAppLanguage, getDifficultyCopy, getObjectiveCopy, type AppLanguage } from '../shared/i18n';
@@ -62,13 +60,15 @@ interface SavedSession {
   checkpoints: CheckpointSnapshot[];
 }
 
-const CLIENT_VERSION = '0.1.0';
+const CLIENT_VERSION = '0.2.0';
 const CONTROL_USER = 'root';
 const CONTROL_HOST = 'archiso';
 const SETTINGS_KEY = 'arch-trainer-terminal-settings-v1';
 const SESSION_KEY = 'arch-trainer-session-v1';
 const TUTOR_KEY = 'arch-trainer-tutorial-complete-v1';
 let lineCounter = 0;
+const LazyXtermTerminal = lazy(() => import('../features/terminal/XtermTerminal').then((module) => ({ default: module.XtermTerminal })));
+const LazyVmPanel = lazy(() => import('../features/vm/VmPanel').then((module) => ({ default: module.VmPanel })));
 
 export function App() {
   const [uiSettings, setUiSettings] = useState<UiSettings>(() => loadUiSettings());
@@ -653,7 +653,11 @@ export function App() {
       <Route path="/help" element={<HelpPage locale={uiSettings.language} theme={uiSettings.theme} />} />
       <Route 
         path="/vm" 
-        element={<VmPanel locale={uiSettings.language} onExit={() => navigate('/')} terminalMode="vm" theme={uiSettings.theme} />} 
+        element={
+          <Suspense fallback={null}>
+            <LazyVmPanel locale={uiSettings.language} onExit={() => navigate('/')} terminalMode="vm" theme={uiSettings.theme} />
+          </Suspense>
+        }
       />
       <Route 
         path="/simulations" 
@@ -717,15 +721,17 @@ export function App() {
 
                 <div className="terminal-workspace">
                   <div className="terminal-main-pane">
-                    <XtermTerminal
-                      lines={terminalLines}
-                      prompt={prompt}
-                      showPrompt={!isBusy}
-                      inputMode="text"
-                      theme={uiSettings.theme}
-                      onTabComplete={(buffer) => completeInput(state, buffer)}
-                      onSubmit={handleTerminalSubmit}
-                    />
+                    <Suspense fallback={null}>
+                      <LazyXtermTerminal
+                        lines={terminalLines}
+                        prompt={prompt}
+                        showPrompt={!isBusy}
+                        inputMode="text"
+                        theme={uiSettings.theme}
+                        onTabComplete={(buffer) => completeInput(state, buffer)}
+                        onSubmit={handleTerminalSubmit}
+                      />
+                    </Suspense>
                   </div>
 
                   <aside className="terminal-sidebar">

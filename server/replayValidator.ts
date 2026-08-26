@@ -19,8 +19,28 @@ export function validateReplay(session: SessionRecord, replay: ReplaySubmission,
     return rejected('SEED_MISMATCH', 'Replay seed does not match the server-issued scenario seed.');
   }
 
+  if (
+    session.sessionId !== replay.sessionId ||
+    session.playerId !== replay.playerId ||
+    session.githubRepo !== replay.githubRepo ||
+    session.buildHash !== replay.buildHash ||
+    session.buildId !== replay.buildId
+  ) {
+    return rejected('IDENTITY_MISMATCH', 'Replay identity does not match the server-issued session.');
+  }
+
+  if (session.version !== replay.version) {
+    return rejected('VERSION_MISMATCH', 'Replay version does not match the server-issued session.');
+  }
+
   if (replay.commands.length === 0) {
     return rejected('EMPTY_REPLAY', 'Replay contains no commands.');
+  }
+
+  const finalCommand = replay.commands[replay.commands.length - 1];
+  const elapsedServerTime = Math.max(0, receivedAtMs - session.startTimeMs);
+  if (finalCommand.tGameMs > elapsedServerTime + 2_000 || finalCommand.tUnixMs > receivedAtMs + 2_000) {
+    return rejected('SERVER_TIME_MISMATCH', 'Replay timestamps are ahead of the server clock.');
   }
 
   const replayHash = computeReplayHash(session, replay.commands);

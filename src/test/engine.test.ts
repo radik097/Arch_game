@@ -61,7 +61,7 @@ describe('Arch Trainer engine', () => {
     const completed = executeCommand(executeCommand(executeCommand(executeCommand(afterOpen, 'g'), 'n'), 'n'), 'w');
 
     expect(mkfsInsideSession.history[mkfsInsideSession.history.length - 1]?.text).toContain('unknown interactive command');
-    expect(mkfsBeforeWrite.history[mkfsBeforeWrite.history.length - 1]?.text).toContain('No such EFI partition');
+    expect(mkfsBeforeWrite.history[mkfsBeforeWrite.history.length - 1]?.text).toContain('No such partition');
     expect(completed.disks.find((disk) => disk.device === state.installTargetDisk)?.partitions.length).toBe(2);
   });
 
@@ -82,7 +82,7 @@ describe('Arch Trainer engine', () => {
 
     expect(finalState.completed).toBe(true);
     expect(finalState.install.rebooted).toBe(true);
-    expect(finalState.history[finalState.history.length - 1]?.text).toContain('Arch Linux installed');
+    expect(finalState.lastEvent).toContain('installed Arch Linux');
   });
 
   it('supports pacman -Syu only inside arch-chroot', () => {

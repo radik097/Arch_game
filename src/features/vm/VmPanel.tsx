@@ -17,6 +17,51 @@ declare global {
   }
 }
 
+class SparseWritableDisk {
+  readonly byteLength: number;
+  onload?: (event: object) => void;
+  private readonly blockSize = 64 * 1024;
+  private readonly blocks = new Map<number, Uint8Array>();
+
+  constructor(byteLength: number) {
+    this.byteLength = byteLength;
+  }
+
+  load() {
+    this.onload?.({});
+  }
+
+  get(offset: number, length: number, callback: (data: Uint8Array) => void) {
+    const result = new Uint8Array(length);
+    const firstBlock = Math.floor(offset / this.blockSize);
+    const lastBlock = Math.floor((offset + length - 1) / this.blockSize);
+    for (let blockIndex = firstBlock; blockIndex <= lastBlock; blockIndex += 1) {
+      const block = this.blocks.get(blockIndex);
+      if (!block) continue;
+      const blockStart = blockIndex * this.blockSize;
+      const copyStart = Math.max(offset, blockStart);
+      const copyEnd = Math.min(offset + length, blockStart + this.blockSize);
+      result.set(block.subarray(copyStart - blockStart, copyEnd - blockStart), copyStart - offset);
+    }
+    callback(result);
+  }
+
+  set(offset: number, data: Uint8Array, callback: () => void) {
+    let sourceOffset = 0;
+    while (sourceOffset < data.length) {
+      const absoluteOffset = offset + sourceOffset;
+      const blockIndex = Math.floor(absoluteOffset / this.blockSize);
+      const blockOffset = absoluteOffset % this.blockSize;
+      const copyLength = Math.min(this.blockSize - blockOffset, data.length - sourceOffset);
+      const block = this.blocks.get(blockIndex) ?? new Uint8Array(this.blockSize);
+      block.set(data.subarray(sourceOffset, sourceOffset + copyLength), blockOffset);
+      this.blocks.set(blockIndex, block);
+      sourceOffset += copyLength;
+    }
+    callback();
+  }
+}
+
 export const VmPanel: React.FC<VmPanelProps> = ({ locale, onExit, theme }) => {
   const text = APP_TEXT[locale].vm;
   const screenRef = useRef<HTMLDivElement>(null);
@@ -27,33 +72,34 @@ export const VmPanel: React.FC<VmPanelProps> = ({ locale, onExit, theme }) => {
   const [statusTextKey, setStatusTextKey] = useState<VmStatusTextKey>('systemIdle');
   const [statusError, setStatusError] = useState<string | null>(null);
   const [config, setConfig] = useState({
-    memorySize: 512,
+    memorySize: 2048,
     bootMode: 'iso' as 'iso' | '9p',
   });
   const [memUsage, setMemUsage] = useState('0');
   const [isFocused, setIsFocused] = useState(false);
+  const [startRequest, setStartRequest] = useState(0);
 
   const statusText = statusError ?? text.statuses[statusTextKey];
 
   const focusScreen = useCallback(() => {
-    if (status === 'ready') {
-      screenRef.current?.focus();
-    }
-  }, [status]);
+    screenRef.current?.focus();
+  }, []);
 
   const startV86 = () => {
     setStatus('loading');
     setStatusError(null);
     setStatusTextKey('loadingEngine');
+    setStartRequest((request) => request + 1);
   };
 
   useEffect(() => {
-    if (status === 'setup' || status === 'error') {
+    if (startRequest === 0) {
       return;
     }
 
     let emulator: any = null;
     let memInterval: ReturnType<typeof setInterval> | null = null;
+    let disposed = false;
 
     async function initV86() {
       try {
@@ -70,6 +116,10 @@ export const VmPanel: React.FC<VmPanelProps> = ({ locale, onExit, theme }) => {
             script.onerror = () => reject(new Error('Failed to load libv86.js script'));
             document.body.appendChild(script);
           });
+        }
+
+        if (disposed) {
+          return;
         }
 
         const V86Constructor = window.V86;
@@ -93,18 +143,18 @@ export const VmPanel: React.FC<VmPanelProps> = ({ locale, onExit, theme }) => {
           autostart: true,
           disable_keyboard: false,
           disable_mouse: false,
-          hda: {
-            size: 2 * 1024 * 1024 * 1024,
-          },
-          boot_order: 'dca',
+          boot_order: 0x213,
         };
 
         if (config.bootMode === 'iso') {
-          options.cdrom = {
-            url: `${base}images/arch.iso`,
-            async: true,
-            size: 834666496,
-          };
+          const archisoBaseUrl = import.meta.env.VITE_VM_ARCHISO_URL?.trim()
+            || new URL(`${base}images/archiso/`, window.location.href).href;
+          options.bzimage = { url: `${base}images/vmlinuz-linux` };
+          options.initrd = { url: `${base}images/initramfs-linux.img` };
+          options.cmdline = `archisobasedir=arch archiso_http_srv=${archisoBaseUrl} ip=dhcp`;
+          options.net_device = { type: 'virtio', relay_url: 'fetch' };
+          options.acpi = false;
+          options.hda = new SparseWritableDisk(2 * 1024 * 1024 * 1024);
         } else {
           options.filesystem = {
             baseurl: `${base}images/arch/`,
@@ -123,12 +173,26 @@ export const VmPanel: React.FC<VmPanelProps> = ({ locale, onExit, theme }) => {
 
         setStatus('booting');
         setStatusTextKey('booting');
-        setTimeout(focusScreen, 500);
 
         emulator.add_listener('emulator-ready', () => {
+          if (disposed) {
+            return;
+          }
           setStatus('ready');
           setStatusTextKey('running');
-          focusScreen();
+          window.setTimeout(focusScreen, 0);
+        });
+
+        emulator.add_listener('download-error', (event: { file_name?: string; request?: { status?: number } }) => {
+          if (disposed) {
+            return;
+          }
+
+          const fileName = event?.file_name || 'VM asset';
+          const responseStatus = event?.request?.status;
+          const suffix = responseStatus ? ` (HTTP ${responseStatus})` : '';
+          setStatus('error');
+          setStatusError(`Failed to load ${fileName}${suffix}`);
         });
 
         memInterval = setInterval(() => {
@@ -144,30 +208,36 @@ export const VmPanel: React.FC<VmPanelProps> = ({ locale, onExit, theme }) => {
           }
         }, 2000);
       } catch (err) {
+        if (disposed) {
+          return;
+        }
         setStatus('error');
         setStatusError(err instanceof Error ? err.message : 'Unknown failure');
       }
     }
 
-    if (status === 'loading') {
-      void initV86();
-    }
+    void initV86();
 
     return () => {
+      disposed = true;
       if (memInterval) {
         clearInterval(memInterval);
       }
-      if (emulatorRef.current) {
+      const activeEmulator = emulatorRef.current;
+      emulatorRef.current = null;
+      if (activeEmulator) {
         try {
-          emulatorRef.current.stop();
-          emulatorRef.current.destroy();
+          if (activeEmulator.v86) {
+            void activeEmulator.destroy();
+          } else {
+            void activeEmulator.stop();
+          }
         } catch {
           // cleanup
         }
-        emulatorRef.current = null;
       }
     };
-  }, [config.bootMode, config.memorySize, focusScreen, status]);
+  }, [config.bootMode, config.memorySize, focusScreen, startRequest]);
 
   const btnClick = useCallback((handler: () => void) => {
     return (event: React.MouseEvent<HTMLButtonElement>) => {
@@ -332,7 +402,7 @@ export const VmPanel: React.FC<VmPanelProps> = ({ locale, onExit, theme }) => {
                   {config.bootMode === 'iso' ? (
                     <>
                       <span className="source-tag">{text.cdrom}</span>
-                      <span className="source-path">/images/arch.iso</span>
+                      <span className="source-path">/images/archiso/</span>
                     </>
                   ) : (
                     <>

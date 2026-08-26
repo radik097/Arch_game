@@ -35,30 +35,45 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm install --legacy-peer-deps
+        run: npm ci
+
+      - name: Validate application
+        run: |
+          npm audit --audit-level=high
+          npm test
+
+      - name: Cache VM assets
+        uses: actions/cache@v4
+        with:
+          path: public/images
+          key: archgame-vm-assets-archlinux32-2024.07.10-i686-v2
 
       - name: Download VM Assets
         run: |
           mkdir -p public/images
-          curl -L "https://copy.sh/v86/bios/seabios.bin" -o public/images/seabios.bin
-          curl -L "https://copy.sh/v86/bios/vgabios.bin" -o public/images/vgabios.bin
-          curl -L "https://mirror.archlinux32.org/archisos/archlinux32-2024.07.10-i686.iso" -o public/images/arch.iso
-          # Note: Since the real arch.iso is too large for GitHub, we fall back to a smaller linux.iso if unavailable.
-          # Ideally, the user should provide a stable URL for the arch.iso.
+          test -s public/images/seabios.bin || curl --fail --location --retry 3 "https://copy.sh/v86/bios/seabios.bin" -o public/images/seabios.bin
+          test -s public/images/vgabios.bin || curl --fail --location --retry 3 "https://copy.sh/v86/bios/vgabios.bin" -o public/images/vgabios.bin
+          if [ ! -s public/images/archiso/arch/i686/airootfs.sfs ] || [ ! -s public/images/vmlinuz-linux ] || [ ! -s public/images/initramfs-linux.img ]; then
+            curl --fail --location --retry 3 "https://mirror.archlinux32.org/archisos/archlinux32-2024.07.10-i686.iso" -o "$RUNNER_TEMP/archlinux32.iso"
+            7z x -y -opublic/images/archiso "$RUNNER_TEMP/archlinux32.iso" arch/boot/i686/vmlinuz-linux arch/boot/i686/initramfs-linux.img arch/i686/airootfs.sfs arch/i686/airootfs.sha512 arch/version
+            cp public/images/archiso/arch/boot/i686/vmlinuz-linux public/images/vmlinuz-linux
+            cp public/images/archiso/arch/boot/i686/initramfs-linux.img public/images/initramfs-linux.img
+          fi
+          rm -rf public/images/archiso/arch/boot
+          test "$(stat -c%s public/images/seabios.bin)" -eq 131072
+          test "$(stat -c%s public/images/vgabios.bin)" -eq 36352
+          test "$(stat -c%s public/images/vmlinuz-linux)" -eq 9064960
+          test "$(stat -c%s public/images/initramfs-linux.img)" -eq 128163948
+          test "$(stat -c%s public/images/archiso/arch/i686/airootfs.sfs)" -eq 693997568
 
       - name: Build client for GitHub Pages
         env:
           VITE_BASE_PATH: /${{ github.event.repository.name }}/
         run: npm run build:client
 
-      - name: Diagnostic listing
-        run: ls -R dist
-
       - name: Prepare Pages artifact
         run: |
-          # Use 404.html trick for SPA routing
           cp dist/index.html dist/404.html
-          # Ensure Jekyll is disabled
           touch dist/.nojekyll
 
       - name: Upload Pages artifact

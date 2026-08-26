@@ -5,6 +5,14 @@ This document summarizes the major innovations and technical improvements implem
 
 ---
 
+## 2026-08-27 — Stability release / Стабилизационный выпуск
+
+**[EN]** Fixed the v86 lifecycle crash, replaced unreliable browser CD-ROM reads with direct Arch kernel + HTTP rootfs boot, added a sparse writable 2 GB disk, raised the working default to 2 GB RAM, and updated v86 to 0.5.441. The server now exposes the routes used by the client, validates replay identity/timing, limits requests, restricts CORS, and protects player registration. Dependencies, CI, Docker/Railway startup, mobile layouts, parser behavior, and code splitting were also verified and corrected without redesigning the interface.
+
+**[RU]** Исправлено преждевременное уничтожение v86, ненадёжное чтение CD-ROM заменено прямой загрузкой ядра Arch и rootfs по HTTP, добавлен разреженный записываемый диск на 2 ГБ, рабочее значение ОЗУ по умолчанию увеличено до 2 ГБ, а v86 обновлён до 0.5.441. Сервер теперь реализует используемые клиентом маршруты, проверяет идентичность и время replay, ограничивает запросы, сужает CORS и защищает регистрацию игроков. Также исправлены зависимости, CI, запуск Docker/Railway, мобильная компоновка, парсер и разделение бандла без редизайна интерфейса.
+
+---
+
 ## 🏗️ 1. V86 Virtual Machine Integration / Интеграция виртуальной машины V86
 
 **[EN]** We have integrated the real `v86` x86 emulator, allowing users to boot an Arch Linux 32-bit ISO directly in their web browser.

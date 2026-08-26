@@ -1,13 +1,13 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { InstallationFSM, TRANSITIONS } from '../installationFSM';
-import { DEFAULT_SYSTEM_STATE, SystemState, InstallStage } from '../../../shared/types';
+import { createDefaultSystemState, SystemState } from '../../../shared/types';
 
 describe('InstallationFSM', () => {
   let state: SystemState;
   let fsm: InstallationFSM;
 
   beforeEach(() => {
-    state = { ...DEFAULT_SYSTEM_STATE };
+    state = createDefaultSystemState();
     fsm = new InstallationFSM(state);
   });
 

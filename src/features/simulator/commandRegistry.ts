@@ -322,8 +322,8 @@ registerCommand({
       return failState(state, commandLine, 'pacstrap: install target must be /mnt');
     }
 
-    if (!state.install.rootMounted) {
-      return failState(state, commandLine, 'pacstrap: /mnt is not a mountpoint');
+    if (!state.install.rootMounted || !state.install.bootMounted) {
+      return failState(state, commandLine, 'pacstrap: mount both /mnt and /mnt/boot before installing packages');
     }
 
     const hasNetwork = state.networkInterfaces.some((ni) => ni.connected);
@@ -427,7 +427,7 @@ registerCommand({
   name: 'grub-install',
   execute: (args, flags, state, commandLine) => {
     if (!state.install.inChroot) return failState(state, commandLine, 'grub-install: error: must be run inside chroot');
-    const target = args.find(a => a.startsWith('--target='));
+    const target = typeof flags.target === 'string' ? flags.target : undefined;
     if (!target && state.difficulty !== 'beginner') return failState(state, commandLine, 'grub-install: error: --target must be specified (e.g. x86_64-efi)');
     
     return withCommandProgress(updateInstallFlag(state, commandLine, 'grubInstalled', 'GRUB bootloader installed successfully.'));
@@ -438,7 +438,7 @@ registerCommand({
   name: 'grub-mkconfig',
   execute: (args, flags, state, commandLine) => {
     if (!state.install.inChroot) return failState(state, commandLine, 'grub-mkconfig: error: must be run inside chroot');
-    const output = args[args.indexOf('-o') + 1];
+    const output = typeof flags.o === 'string' ? flags.o : args[0];
     if (!output && state.difficulty !== 'beginner') return failState(state, commandLine, 'grub-mkconfig: error: -o <path> must be specified');
 
     return withCommandProgress(updateInstallFlag(state, commandLine, 'grubConfigGenerated', 'GRUB configuration file generated.'));
@@ -603,7 +603,7 @@ registerCommand({
 registerCommand({
   name: 'pacman',
   execute: (args, flags, state, commandLine) => {
-    if (!state.install.inChroot) return failState(state, commandLine, 'pacman: error: run from inside chroot');
+    if (!state.install.inChroot) return failState(state, commandLine, 'pacman: error: run pacman -Syu from inside arch-chroot');
     if (!isNetworkReady(state)) return failState(state, commandLine, 'pacman: database download failed (no network)');
 
     return withCommandProgress(updateInstallFlag(state, commandLine, 'packagesUpdated', 'System updated.'));

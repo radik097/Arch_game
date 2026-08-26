@@ -4,7 +4,7 @@ import {
   ExecutionResult,
   InstallStage,
   Partition,
-  DEFAULT_SYSTEM_STATE,
+  createDefaultSystemState,
 } from '../../shared/types';
 
 export type DifficultyMode = 'beginner' | 'experienced' | 'expert' | 'god';
@@ -17,7 +17,7 @@ export class SimulatorEngine implements IExecutionEngine {
 
   constructor(difficulty: DifficultyMode = 'beginner') {
     this.difficulty = difficulty;
-    this.state = { ...DEFAULT_SYSTEM_STATE };
+    this.state = createDefaultSystemState();
   }
 
   async execute(command: string): Promise<ExecutionResult> {
@@ -82,7 +82,7 @@ export class SimulatorEngine implements IExecutionEngine {
   }
 
   reset(): void {
-    this.state = { ...DEFAULT_SYSTEM_STATE };
+    this.state = createDefaultSystemState();
   }
 
   supportsCommand(command: string): boolean {

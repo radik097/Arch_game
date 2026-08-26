@@ -16,10 +16,13 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm install --legacy-peer-deps
+        run: npm ci
 
-      - name: Validate server build
-        run: npm run build:server
+      - name: Validate application
+        run: |
+          npm audit --audit-level=high
+          npm test
+          npm run build:server
 
       - name: Install Railway CLI
         run: npm install --global @railway/cli
