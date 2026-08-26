@@ -10,7 +10,7 @@ function createSessionRecord(overrides: Partial<SessionRecord> = {}): SessionRec
     playerId: 'player-001',
     forkName: 'tester-fork',
     githubRepo: 'tester/arch-trainer-fork',
-    version: '0.2.0',
+    version: '0.2.1',
     startTimeMs: 1_710_000_000_000,
     createdAtMs: 1_710_000_000_000,
     expiresAtMs: 1_710_000_900_000,
@@ -27,7 +27,7 @@ function createSessionRecord(overrides: Partial<SessionRecord> = {}): SessionRec
 
 function createReplay(commands: ReplaySubmission['commands'], difficulty: ReplaySubmission['difficulty'] = 'beginner'): ReplaySubmission {
   return {
-    version: '0.2.0',
+    version: '0.2.1',
     difficulty,
     sessionId: 'session-001',
     seed: 'seed-001',

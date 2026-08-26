@@ -1,9 +1,9 @@
 {
   "version": 1,
-  "build_hash": "d53266dea5b9aac3b945d0a2112f3e21b57d21ddab1bcd0100a660e800b24719",
-  "config_hash": "b18ae4eacc9692a77ec5429789cbee489e7cb12431f6bd0ab9d42d5359add236",
-  "generated_at": "2026-08-26T16:24:30.599Z",
-  "build_id": "e3aac75c2dea4b8a",
+  "build_hash": "abb410190566e79df6e2ca87616c4dced581a940ab3ccfa0d4adee9812024ca8",
+  "config_hash": "9dd0d425ecc59679e8c27d8ed3fa094cdb4070ff31b132b0c6e614a2110a3ae4",
+  "generated_at": "2026-08-26T22:38:50.573Z",
+  "build_id": "b05ff359bd6a3f9d",
   "files_hashed": [
     "index.html",
     "package.json",

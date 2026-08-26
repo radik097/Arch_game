@@ -60,7 +60,7 @@ interface SavedSession {
   checkpoints: CheckpointSnapshot[];
 }
 
-const CLIENT_VERSION = '0.2.0';
+const CLIENT_VERSION = '0.2.1';
 const CONTROL_USER = 'root';
 const CONTROL_HOST = 'archiso';
 const SETTINGS_KEY = 'arch-trainer-terminal-settings-v1';

@@ -5,6 +5,14 @@ This document summarizes the major innovations and technical improvements implem
 
 ---
 
+## 2026-08-27 — VM network hotfix / Исправление сети VM
+
+**[EN]** Fixed Arch rootfs loading on the HTTPS GitHub Pages deployment. The v86 fetch relay accepts guest connections on port 80 and upgrades them to HTTPS in the browser, so the kernel now receives the required HTTP guest URL instead of attempting an unsupported direct TLS connection.
+
+**[RU]** Исправлена загрузка Arch rootfs на HTTPS-сайте GitHub Pages. Fetch-relay v86 принимает гостевые соединения на порту 80 и переводит их в HTTPS внутри браузера, поэтому ядро теперь получает необходимый HTTP-адрес вместо неподдерживаемого прямого TLS-соединения.
+
+---
+
 ## 2026-08-27 — Stability release / Стабилизационный выпуск
 
 **[EN]** Fixed the v86 lifecycle crash, replaced unreliable browser CD-ROM reads with direct Arch kernel + HTTP rootfs boot, added a sparse writable 2 GB disk, raised the working default to 2 GB RAM, and updated v86 to 0.5.441. The server now exposes the routes used by the client, validates replay identity/timing, limits requests, restricts CORS, and protects player registration. Dependencies, CI, Docker/Railway startup, mobile layouts, parser behavior, and code splitting were also verified and corrected without redesigning the interface.

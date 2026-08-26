@@ -62,6 +62,19 @@ class SparseWritableDisk {
   }
 }
 
+export function toFetchRelayGuestUrl(value: string, pageUrl: string) {
+  const url = new URL(value, pageUrl);
+
+  // v86's fetch relay accepts guest TCP connections on port 80 only. When the
+  // host page uses HTTPS, the relay upgrades this HTTP URL back to HTTPS before
+  // issuing the browser fetch, so the asset still travels over TLS.
+  if (url.protocol === 'https:') {
+    url.protocol = 'http:';
+  }
+
+  return url.href;
+}
+
 export const VmPanel: React.FC<VmPanelProps> = ({ locale, onExit, theme }) => {
   const text = APP_TEXT[locale].vm;
   const screenRef = useRef<HTMLDivElement>(null);
@@ -147,8 +160,9 @@ export const VmPanel: React.FC<VmPanelProps> = ({ locale, onExit, theme }) => {
         };
 
         if (config.bootMode === 'iso') {
-          const archisoBaseUrl = import.meta.env.VITE_VM_ARCHISO_URL?.trim()
-            || new URL(`${base}images/archiso/`, window.location.href).href;
+          const archisoAssetUrl = import.meta.env.VITE_VM_ARCHISO_URL?.trim()
+            || `${base}images/archiso/`;
+          const archisoBaseUrl = toFetchRelayGuestUrl(archisoAssetUrl, window.location.href);
           options.bzimage = { url: `${base}images/vmlinuz-linux` };
           options.initrd = { url: `${base}images/initramfs-linux.img` };
           options.cmdline = `archisobasedir=arch archiso_http_srv=${archisoBaseUrl} ip=dhcp`;

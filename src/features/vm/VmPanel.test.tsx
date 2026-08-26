@@ -2,11 +2,18 @@
 
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { VmPanel } from './VmPanel';
+import { toFetchRelayGuestUrl, VmPanel } from './VmPanel';
 
 describe('VmPanel', () => {
   afterEach(() => {
     delete window.V86;
+  });
+
+  it('uses guest HTTP so the v86 fetch relay can proxy an HTTPS Pages asset', () => {
+    expect(toFetchRelayGuestUrl(
+      '/Arch_game/images/archiso/',
+      'https://radik097.github.io/Arch_game/',
+    )).toBe('http://radik097.github.io/Arch_game/images/archiso/');
   });
 
   it('keeps the emulator alive while status changes and configures a writable Arch environment', async () => {
@@ -49,7 +56,7 @@ describe('VmPanel', () => {
       autostart: true,
       bzimage: { url: '/images/vmlinuz-linux' },
       initrd: { url: '/images/initramfs-linux.img' },
-      cmdline: expect.stringContaining('/images/archiso/'),
+      cmdline: expect.stringContaining('archiso_http_srv=http://localhost:3000/images/archiso/'),
       net_device: { type: 'virtio', relay_url: 'fetch' },
     });
     expect(options).not.toHaveProperty('cdrom');

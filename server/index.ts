@@ -222,7 +222,7 @@ app.get('/api/steam/priceoverview', async (req: Request, res: Response) => {
 
   try {
     const response = await fetch(buildSteamPriceOverviewUrl(appId, currency, marketHashName), {
-      headers: { Accept: 'application/json', 'User-Agent': 'ArchTrainer/0.2.0' },
+      headers: { Accept: 'application/json', 'User-Agent': 'ArchTrainer/0.2.1' },
       signal: AbortSignal.timeout(8_000),
     });
     if (!response.ok) {
